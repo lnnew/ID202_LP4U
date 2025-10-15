@@ -83,7 +83,7 @@ function draw() {
     previousAngle = angle;
     angle += rotationSpeed;
     
-    // 한 바퀴(2π) 회전 감지
+    // 한 바퀴(2π) 회전 감지 - 앞으로든 뒤로든
     let prevRotations = Math.floor(previousAngle / TWO_PI);
     let currRotations = Math.floor(angle / TWO_PI);
     
@@ -242,6 +242,15 @@ function mouseWheel(event) {
     
     previousAngle = angle;
     angle += scrollAmount;
+    
+    // 한 바퀴(2π) 회전 감지 (스크롤로도)
+    let prevRotations = Math.floor(previousAngle / TWO_PI);
+    let currRotations = Math.floor(angle / TWO_PI);
+    
+    if (currRotations > prevRotations) {
+        hasCompletedRotation = true;
+        lastInputTime = millis();
+    }
     
     return false; // 기본 스크롤 동작 방지
 }

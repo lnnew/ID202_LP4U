@@ -96,7 +96,7 @@ function draw() {
     scale(zoomLevel);
     translate(-centerX, -centerY);
     
-    // 블러 효과 적용
+    // 블러 효과 적용 (모든 요소에)
     if (blurAmount > 0.1) {
         drawingContext.filter = `blur(${blurAmount}px)`;
     }
@@ -104,13 +104,13 @@ function draw() {
     // 모든 원 그리기 (현재 레벨까지)
     push();
     noFill();
-    // 리와인드 중에는 선을 뚜렷하게, 아니면 기본
+    // 리와인드 중일 때만 선을 뚜렷하게 표시
     if (isRewinding) {
-        stroke(120, 120, 120);
-        strokeWeight(3);
+        stroke(120, 120, 120); // 더 밝게
+        strokeWeight(3); // 더 두껍게
     } else {
         stroke(80, 80, 80);
-        strokeWeight(1);
+        strokeWeight(2);
     }
     for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);

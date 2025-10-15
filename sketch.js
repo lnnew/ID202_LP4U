@@ -104,14 +104,8 @@ function draw() {
     // 모든 원 그리기 (현재 레벨까지)
     push();
     noFill();
-    // 리와인드 중일 때만 선을 뚜렷하게 표시
-    if (isRewinding) {
-        stroke(120, 120, 120); // 더 밝게
-        strokeWeight(3); // 더 두껍게
-    } else {
-        stroke(80, 80, 80);
-        strokeWeight(2);
-    }
+    stroke(80, 80, 80);
+    strokeWeight(1);
     for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);

@@ -307,9 +307,12 @@ function createRewindParticles() {
     let particleX = centerX + cos(angle12) * zoomedRadius;
     let particleY = centerY + sin(angle12) * zoomedRadius;
     
-    // 바깥쪽으로 튀는 파티클 (적은 개수)
-    for (let i = 0; i < 3; i++) {
-        particles.push(new RewindParticle(particleX, particleY, angle12));
+    // 왼쪽 방향 (PI = 180도)
+    let leftDirection = PI;
+    
+    // 왼쪽으로 튀는 파티클
+    for (let i = 0; i < 5; i++) {
+        particles.push(new RewindParticle(particleX, particleY, leftDirection));
     }
 }
 
@@ -354,12 +357,13 @@ class RewindParticle {
     constructor(x, y, direction) {
         this.x = x;
         this.y = y;
-        // 바깥쪽 방향으로 튐
-        let speed = random(2, 4);
-        this.vx = cos(direction) * speed;
-        this.vy = sin(direction) * speed;
-        this.alpha = 200;
-        this.size = random(2, 4);
+        // 왼쪽으로 강하게 튐
+        let speed = random(4, 7); // 더 빠르게
+        let angleVariation = random(-0.2, 0.2); // 약간의 변화
+        this.vx = cos(direction + angleVariation) * speed;
+        this.vy = sin(direction + angleVariation) * speed;
+        this.alpha = 220;
+        this.size = random(2, 5); // 더 크게
         this.life = 0;
     }
     
@@ -367,9 +371,9 @@ class RewindParticle {
         this.x += this.vx;
         this.y += this.vy;
         // 약간의 감속
-        this.vx *= 0.95;
-        this.vy *= 0.95;
-        this.alpha -= 8;
+        this.vx *= 0.96;
+        this.vy *= 0.96;
+        this.alpha -= 6; // 천천히 사라짐
         this.life++;
     }
     
@@ -380,7 +384,7 @@ class RewindParticle {
     }
     
     isDead() {
-        return this.alpha <= 0 || this.life > 30;
+        return this.alpha <= 0 || this.life > 40; // 더 오래 살아있음
     }
 }
 

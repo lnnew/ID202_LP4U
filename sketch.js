@@ -14,6 +14,8 @@ let targetZoom = 1; // 목표 줌 레벨
 let lastInputTime = 0; // 마지막 입력 시간
 let hasCompletedRotation = false; // 한 바퀴 완료 여부
 let isWaitingForZoom = false; // 줌아웃 대기 중
+let blurAmount = 0; // 블러 강도
+let targetBlur = 0; // 목표 블러 강도
 
 function setup() {
     createCanvas(800, 800);
@@ -33,17 +35,31 @@ function draw() {
     // 줌 레벨 부드럽게 전환
     zoomLevel = lerp(zoomLevel, targetZoom, 0.05);
     
+    // 블러 효과 부드럽게 전환
+    blurAmount = lerp(blurAmount, targetBlur, 0.1);
+    
     // 한 바퀴 완료 후 5초간 입력 없으면 새 원 생성
     if (hasCompletedRotation && !isWaitingForZoom) {
-        if (millis() - lastInputTime > 5000) {
+        let timeSinceInput = millis() - lastInputTime;
+        
+        // 3초부터 블러 시작, 5초에 최대
+        if (timeSinceInput > 3000) {
+            targetBlur = map(timeSinceInput, 3000, 5000, 0, 8);
+            targetBlur = constrain(targetBlur, 0, 8);
+        }
+        
+        if (timeSinceInput > 5000) {
             isWaitingForZoom = true;
             // 잠깐 멈춤
             setTimeout(() => {
                 addNewCircleWithZoom();
                 isWaitingForZoom = false;
                 hasCompletedRotation = false;
+                targetBlur = 0; // 블러 제거
             }, 500);
         }
+    } else {
+        targetBlur = 0; // 입력 중에는 블러 없음
     }
     
     // 스페이스바 눌렸을 때 속도 2배
@@ -71,6 +87,11 @@ function draw() {
     translate(centerX, centerY);
     scale(zoomLevel);
     translate(-centerX, -centerY);
+    
+    // 블러 효과 적용
+    if (blurAmount > 0.1) {
+        drawingContext.filter = `blur(${blurAmount}px)`;
+    }
     
     // 모든 원 그리기 (현재 레벨까지)
     push();
@@ -130,6 +151,9 @@ function draw() {
     
     pop();
     
+    // 블러 필터 제거
+    drawingContext.filter = 'none';
+    
     // 파티클 업데이트 및 그리기 (줌 바깥에서)
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
@@ -175,6 +199,7 @@ function keyPressed() {
     // 일반 글자 입력 (스페이스 제외)
     if (key.length === 1 && keyCode !== 32) {
         lastInputTime = millis(); // 입력 시간 갱신
+        targetBlur = 0; // 블러 즉시 제거
         
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
         letters.push({

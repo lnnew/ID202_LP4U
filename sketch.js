@@ -40,6 +40,11 @@ function draw() {
     // 블러 효과 부드럽게 전환
     blurAmount = lerp(blurAmount, targetBlur, 0.1);
     
+    // 현재 타이핑 중이면 끝 각도 업데이트
+    if (currentTrace) {
+        currentTrace.endAngle = -PI / 2; // 항상 12시 방향
+    }
+    
     // 한 바퀴 완료 후 5초간 입력 없으면 새 원 생성
     if (hasCompletedRotation && !isWaitingForZoom) {
         let timeSinceInput = millis() - lastInputTime;
@@ -235,9 +240,13 @@ function keyPressed() {
         // 첫 글자 입력 시작 - 새로운 흔적 시작
         if (!currentTrace) {
             currentTrace = {
-                startAngle: -PI / 2, // 12시 방향에서 시작
+                startAngle: -PI / 2 - 0.1, // 12시 방향보다 약간 이전에서 시작
+                endAngle: -PI / 2,
                 circleLevel: currentCircleLevel
             };
+        } else {
+            // 계속 타이핑 중이면 끝 각도 확장
+            currentTrace.endAngle = -PI / 2 + 0.1; // 약간 앞으로
         }
         
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
@@ -258,13 +267,11 @@ function keyReleased() {
     // 스페이스바 뗌 감지
     if (keyCode === 32) {
         isSpacePressed = false;
+        return false;
     }
     
     // 일반 글자 키를 뗐을 때 - 흔적 저장
     if (key.length === 1 && keyCode !== 32 && currentTrace) {
-        // 현재 12시 방향에서 흔적 종료
-        currentTrace.endAngle = -PI / 2;
-        
         // 흔적 배열에 저장
         traces.push({
             startAngle: currentTrace.startAngle,

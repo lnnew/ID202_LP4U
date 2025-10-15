@@ -38,7 +38,7 @@ function draw() {
     for (let i = 0; i < letters.length; i++) {
         push();
         
-        // 각 글자의 각도 계산 (12시 방향부터 시작)
+        // 모든 글자가 12시 방향에 위치
         let letterAngle = -PI / 2; // 12시 방향 (-90도)
         
         // 글자 위치 계산
@@ -55,17 +55,18 @@ function draw() {
         fill(255, 255, 255, alpha);
         noStroke();
         
+        // 모든 글자를 같은 위치에 겹쳐서 그림
         text(letters[i], 0, 0);
         pop();
     }
     
     pop();
     
-    // 안내 문구
+    // Instructions
     push();
     fill(150);
     textSize(16);
-    text('키보드를 눌러 글자를 추가하세요', width / 2, height - 50);
+    text('Press any key to add letters', width / 2, height - 50);
     pop();
 }
 

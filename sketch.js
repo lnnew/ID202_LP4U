@@ -231,8 +231,8 @@ function createParticles() {
     let particleX = centerX;
     let particleY = centerY - currentRadius * zoomLevel;
     
-    // 여러 파티클 생성 (더 많이, 작게)
-    for (let i = 0; i < 15; i++) {
+    // 더 적고 작은 파티클
+    for (let i = 0; i < 8; i++) {
         particles.push(new Particle(particleX, particleY));
     }
 }
@@ -242,22 +242,22 @@ class Particle {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        // 사방으로 랜덤하게 흩뿌려짐
+        // 사방으로 부드럽게 퍼짐
         let angle = random(TWO_PI);
-        let speed = random(1, 4);
+        let speed = random(0.5, 2);
         this.vx = cos(angle) * speed;
         this.vy = sin(angle) * speed;
-        this.alpha = 255;
-        this.size = random(2, 4); // 더 작게
+        this.alpha = 200;
+        this.size = random(1.5, 3); // 아주 작게
     }
     
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        // 속도 감소 (마찰)
-        this.vx *= 0.95;
-        this.vy *= 0.95;
-        this.alpha -= 8; // 빠르게 사라짐
+        // 빠르게 감속
+        this.vx *= 0.92;
+        this.vy *= 0.92;
+        this.alpha -= 10; // 빠르게 페이드
     }
     
     display() {

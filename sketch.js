@@ -366,10 +366,10 @@ class RewindParticle {
     constructor(x, y, direction, speedMultiplier = 1) {
         this.x = x;
         this.y = y;
-        // 왼쪽으로 훨씬 더 강하게 튐, 위쪽으로도 많이 튐
+        // 왼쪽으로 훨씬 더 강하게 튐, 위쪽으로도 조금 튐
         let baseSpeed = random(8, 15); // 기본 속도 증가
         let speed = baseSpeed * speedMultiplier; // 스크롤 속도에 비례
-        let angleVariation = random(-0.5, 0.5); // 위아래 변화 증가 (약 ±28도)
+        let angleVariation = random(-0.3, 0.3); // 적당한 변화 (약 ±17도)
         this.vx = cos(direction + angleVariation) * speed;
         this.vy = sin(direction + angleVariation) * speed;
         this.alpha = 220;

@@ -5,6 +5,7 @@ let rotationSpeed = 0.005; // 현재 회전 속도
 let baseRadius = 200; // 첫 번째 원의 반지름
 let radiusIncrement = 60; // 각 원 사이의 간격
 let isSpacePressed = false; // 스페이스바 눌림 상태
+let currentCircleLevel = 0; // 현재 활성화된 원의 레벨
 
 function setup() {
     createCanvas(800, 800);
@@ -26,20 +27,12 @@ function draw() {
     // 회전 각도 업데이트
     angle += rotationSpeed;
     
-    // 필요한 원의 개수 계산 (첫 글자가 몇 바퀴 돌았는지)
-    let maxCircles = 1;
-    if (letters.length > 0) {
-        let firstLetter = letters[0];
-        let totalRotation = firstLetter.startAngle + angle + PI / 2; // 12시 기준으로 계산
-        maxCircles = Math.max(1, Math.floor(Math.abs(totalRotation) / (TWO_PI)) + 1);
-    }
-    
-    // 중심 원들 그리기 (가이드)
+    // 모든 원 그리기 (현재 레벨까지)
     push();
     noFill();
     stroke(80, 80, 80);
     strokeWeight(1);
-    for (let i = 0; i < maxCircles; i++) {
+    for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
     }
@@ -57,9 +50,8 @@ function draw() {
         // 각 글자의 현재 각도 = 입력 시점 각도 + 전체 회전
         let letterAngle = letter.startAngle + angle;
         
-        // 글자가 몇 바퀴 돌았는지 계산 (12시 기준)
-        let totalRotation = letterAngle + PI / 2; // 12시가 0이 되도록
-        let circleLevel = Math.floor(Math.abs(totalRotation) / TWO_PI);
+        // 글자가 속한 원의 레벨 (입력 시점에 고정됨)
+        let circleLevel = letter.circleLevel;
         
         // 현재 원의 반지름 계산
         let currentRadius = baseRadius + (circleLevel * radiusIncrement);
@@ -88,7 +80,7 @@ function draw() {
     push();
     fill(150);
     textSize(16);
-    text('Press any key to add letters | Hold SPACE for 2x speed', width / 2, height - 50);
+    text('Press any key to add letters | Hold SPACE for 2x speed | Scroll to rewind/forward', width / 2, height - 50);
     pop();
     
     // Credit
@@ -115,17 +107,12 @@ function keyPressed() {
     
     // 일반 글자 입력 (스페이스 제외)
     if (key.length === 1 && keyCode !== 32) {
-        // 새 글자는 항상 12시 방향(-PI/2)에서 시작
-        // 현재 회전 각도를 빼서, 전역 회전이 더해졌을 때 12시가 되도록 함
+        // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
         letters.push({
             char: key,
-            startAngle: -PI / 2 - angle
+            startAngle: -PI / 2 - angle,
+            circleLevel: currentCircleLevel // 현재 원 레벨에 고정
         });
-        
-        // 너무 많은 글자가 쌓이지 않도록 제한 (옵션)
-        if (letters.length > 50) {
-            letters.shift();
-        }
     }
     
     return false; // 기본 동작 방지
@@ -135,6 +122,27 @@ function keyReleased() {
     // 스페이스바 뗌 감지
     if (keyCode === 32) {
         isSpacePressed = false;
+    }
+    return false;
+}
+
+function mouseWheel(event) {
+    // 마우스 휠로 시간 제어 (회전 각도 조절)
+    let scrollAmount = event.delta * 0.001; // 스크롤 감도 조절
+    angle += scrollAmount;
+    
+    return false; // 기본 스크롤 동작 방지
+}
+
+// 새 원 추가 함수 (수동으로 호출)
+function addNewCircle() {
+    currentCircleLevel++;
+}
+
+// 키보드로 새 원 추가 (예: Enter 키)
+function keyTyped() {
+    if (key === '\n' || key === '\r') { // Enter 키
+        addNewCircle();
     }
     return false;
 }

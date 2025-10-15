@@ -1,11 +1,13 @@
 let letters = [];
 let angle = 0;
+let previousAngle = 0; // 이전 각도 추적
 let baseSpeed = 0.005; // 기본 회전 속도
 let rotationSpeed = 0.005; // 현재 회전 속도
 let baseRadius = 200; // 첫 번째 원의 반지름
 let radiusIncrement = 60; // 각 원 사이의 간격
 let isSpacePressed = false; // 스페이스바 눌림 상태
 let currentCircleLevel = 0; // 현재 활성화된 원의 레벨
+let totalRotations = 0; // 총 회전 수
 
 function setup() {
     createCanvas(800, 800);
@@ -25,7 +27,17 @@ function draw() {
     rotationSpeed = isSpacePressed ? baseSpeed * 2 : baseSpeed;
     
     // 회전 각도 업데이트
+    previousAngle = angle;
     angle += rotationSpeed;
+    
+    // 한 바퀴(2π) 회전 감지
+    let prevRotations = Math.floor(previousAngle / TWO_PI);
+    let currRotations = Math.floor(angle / TWO_PI);
+    
+    if (currRotations > prevRotations) {
+        // 한 바퀴 완료 - 새 원 추가
+        addNewCircle();
+    }
     
     // 모든 원 그리기 (현재 레벨까지)
     push();
@@ -36,6 +48,15 @@ function draw() {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
     }
+    pop();
+    
+    // 12시 방향 눈금 표시
+    push();
+    stroke(200, 200, 200);
+    strokeWeight(3);
+    let tickLength = 15;
+    line(centerX, centerY - baseRadius + tickLength, 
+         centerX, centerY - baseRadius - tickLength);
     pop();
     
     // 모든 글자 그리기
@@ -129,7 +150,18 @@ function keyReleased() {
 function mouseWheel(event) {
     // 마우스 휠로 시간 제어 (회전 각도 조절)
     let scrollAmount = event.delta * 0.001; // 스크롤 감도 조절
+    
+    previousAngle = angle;
     angle += scrollAmount;
+    
+    // 한 바퀴(2π) 회전 감지 (스크롤로도)
+    let prevRotations = Math.floor(previousAngle / TWO_PI);
+    let currRotations = Math.floor(angle / TWO_PI);
+    
+    if (currRotations > prevRotations) {
+        // 한 바퀴 완료 - 새 원 추가
+        addNewCircle();
+    }
     
     return false; // 기본 스크롤 동작 방지
 }

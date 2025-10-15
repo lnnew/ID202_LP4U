@@ -43,19 +43,19 @@ function draw() {
     // 블러 효과 부드럽게 전환
     blurAmount = lerp(blurAmount, targetBlur, 0.08);
     
-    // 한 바퀴 완료 후 7초간 입력 없으면 새 원 생성
+    // 한 바퀴 완료 후 3초간 입력 없으면 새 원 생성
     if (hasCompletedRotation && !isWaitingForZoom) {
         let timeSinceInput = millis() - lastInputTime;
         
-        // 3초부터 블러 시작, 7초에 최대
-        if (timeSinceInput > 3000) {
-            let progress = map(timeSinceInput, 3000, 7000, 0, 1);
+        // 즉시 블러 시작, 3초에 최대
+        if (timeSinceInput > 0) {
+            let progress = map(timeSinceInput, 0, 3000, 0, 1);
             progress = constrain(progress, 0, 1);
             
             targetBlur = progress * 10; // 블러 강도 증가
         }
         
-        if (timeSinceInput > 7000) {
+        if (timeSinceInput > 3000) {
             isWaitingForZoom = true;
             // 잠깐 멈춤
             setTimeout(() => {
@@ -281,9 +281,9 @@ function addNewCircle() {
 // 줌아웃과 함께 새 원 추가
 function addNewCircleWithZoom() {
     currentCircleLevel++;
-    // 줌아웃 효과
+    // 줌아웃 효과 - 새로 추가된 원까지 포함하여 계산
     let newMaxRadius = baseRadius + (currentCircleLevel * radiusIncrement);
-    targetZoom = (height * 0.8) / (newMaxRadius * 2);
+    targetZoom = (height * 0.9) / (newMaxRadius * 2); // 여유있게 0.9로 조정
 }
 
 // 파티클 생성

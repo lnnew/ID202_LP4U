@@ -40,11 +40,6 @@ function draw() {
     // 블러 효과 부드럽게 전환
     blurAmount = lerp(blurAmount, targetBlur, 0.1);
     
-    // 현재 타이핑 중이면 끝 각도 업데이트
-    if (currentTrace) {
-        currentTrace.endAngle = -PI / 2; // 항상 12시 방향
-    }
-    
     // 한 바퀴 완료 후 5초간 입력 없으면 새 원 생성
     if (hasCompletedRotation && !isWaitingForZoom) {
         let timeSinceInput = millis() - lastInputTime;
@@ -79,6 +74,12 @@ function draw() {
     // 회전 각도 업데이트
     previousAngle = angle;
     angle += rotationSpeed;
+    
+    // 현재 타이핑 중이면 시작 각도를 회전에 맞춰 업데이트
+    if (currentTrace) {
+        // 회전한 만큼 시작 각도를 뒤로 이동
+        currentTrace.startAngle -= rotationSpeed;
+    }
     
     // 한 바퀴(2π) 회전 감지
     let prevRotations = Math.floor(previousAngle / TWO_PI);
@@ -129,31 +130,40 @@ function draw() {
     for (let trace of traces) {
         let radius = baseRadius + (trace.circleLevel * radiusIncrement);
         
-        push();
-        noFill();
-        stroke(255, 255, 255, 150);
-        strokeWeight(5);
-        strokeCap(ROUND);
+        // 각도 차이 확인
+        let angleDiff = trace.endAngle - trace.startAngle;
         
-        // 호(arc) 그리기
-        arc(0, 0, radius * 2, radius * 2, trace.startAngle, trace.endAngle);
-        pop();
+        // 각도 차이가 있을 때만 그리기
+        if (abs(angleDiff) > 0.01) {
+            push();
+            noFill();
+            stroke(255, 255, 255, 150);
+            strokeWeight(5);
+            strokeCap(ROUND);
+            
+            // 호(arc) 그리기
+            arc(0, 0, radius * 2, radius * 2, trace.startAngle, trace.endAngle);
+            pop();
+        }
     }
     
     // 현재 타이핑 중인 흔적 그리기 (실시간)
     if (currentTrace) {
         let radius = baseRadius + (currentTrace.circleLevel * radiusIncrement);
+        let angleDiff = currentTrace.endAngle - currentTrace.startAngle;
         
-        push();
-        noFill();
-        stroke(255, 255, 255, 200);
-        strokeWeight(5);
-        strokeCap(ROUND);
-        
-        // 시작점부터 현재 12시 방향까지 (회전 보정 제거)
-        let currentAngle = -PI / 2;
-        arc(0, 0, radius * 2, radius * 2, currentTrace.startAngle, currentAngle);
-        pop();
+        // 각도 차이가 있을 때만 그리기
+        if (abs(angleDiff) > 0.01) {
+            push();
+            noFill();
+            stroke(255, 255, 255, 200);
+            strokeWeight(5);
+            strokeCap(ROUND);
+            
+            // 시작점부터 끝점(12시)까지
+            arc(0, 0, radius * 2, radius * 2, currentTrace.startAngle, currentTrace.endAngle);
+            pop();
+        }
     }
     
     pop();

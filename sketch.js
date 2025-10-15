@@ -90,39 +90,34 @@ function draw() {
         lastInputTime = millis();
     }
     
-    // 줌 적용
-    push();
-    translate(centerX, centerY);
-    scale(zoomLevel);
-    translate(-centerX, -centerY);
-    
-    // 블러 효과 적용 (모든 요소에)
-    if (blurAmount > 0.1) {
+    // 블러 효과 적용 (새 원 생성 전)
+    if (blurAmount > 0.1 && !isWaitingForZoom) {
         drawingContext.filter = `blur(${blurAmount}px)`;
     }
     
-    // 모든 원 그리기 (현재 레벨까지)
-    push();
+    // 모든 원 그리기 (현재 레벨까지) - 퓨어 버전
     noFill();
-    stroke(80, 80, 80);
-    strokeWeight(1);
+    stroke(120, 120, 120); // 회색으로 변경
+    strokeWeight(1); 
     for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
-        // 각 원마다 12시 방향 눈금 - 아래쪽이 뾰족한 삼각형
-        push();
-        fill(200, 200, 200);
-        noStroke();
-        let triangleSize = 12;
-        let triangleY = centerY - radius - triangleSize;
-        triangle(
-            centerX, triangleY + triangleSize,
-            centerX - triangleSize/2, triangleY - triangleSize/2,
-            centerX + triangleSize/2, triangleY - triangleSize/2
-        );
-        pop();
-        // 눈금과 원이 맞닿는 부분에 잔잔한 치직 효과 (리와인드 중에는 없음)
-        if (!isRewinding) {
+        
+        // 맨 바깥쪽 원에만 삼각형 침 추가
+        if (i === currentCircleLevel) {
+            push();
+            fill(200, 200, 200);
+            noStroke();
+            let triangleSize = 12;
+            let triangleY = centerY - radius - triangleSize;
+            triangle(
+                centerX, triangleY + triangleSize,
+                centerX - triangleSize/2, triangleY - triangleSize/2,
+                centerX + triangleSize/2, triangleY - triangleSize/2
+            );
+            pop();
+            
+            // 삼각형 침 아래 치직 효과
             let sparkCount = 8;
             let sparkBaseAngle = -PI / 2;
             let sparkRadius = radius + 1;
@@ -130,16 +125,14 @@ function draw() {
                 let sparkAngle = sparkBaseAngle + random(-0.12, 0.12);
                 let sx = centerX + cos(sparkAngle) * sparkRadius + random(-2,2);
                 let sy = centerY + sin(sparkAngle) * sparkRadius + random(-2,2);
-                let ex = sx + random(-2, 2); // width 1/3로 줄임
+                let ex = sx + random(-2, 2);
                 let ey = sy + random(-2, 2);
                 stroke(220, 220, 255, 120);
-                strokeWeight(0.4); // 1/3로 줄임
+                strokeWeight(0.4);
                 line(sx, sy, ex, ey);
             }
-            noStroke();
         }
     }
-    pop();
     
     // 모든 글자 그리기
     push();
@@ -159,7 +152,7 @@ function draw() {
         // 글자가 속한 원의 레벨 (입력 시점에 고정됨)
         let circleLevel = letter.circleLevel;
         
-        // 현재 원의 반지름 계산
+        // 현재 원의 반지름 계산 - 줌 제거
         let currentRadius = baseRadius + (circleLevel * radiusIncrement);
         
         // 글자 위치 계산
@@ -171,11 +164,9 @@ function draw() {
         // 글자를 항상 읽을 수 있게 회전 보정
         rotate(-angle);
         
-        // 글자 투명도: 키를 누른 시간에 따라 (0.5초~3초)
+        // 글자 더 흰색으로
         let letterAlpha = letter.opacity || 255;
-        // 오래된 것일수록 약간 더 어둡게 (선택사항)
-        let ageFactor = map(i, 0, max(letters.length - 1, 1), 0.8, 1);
-        fill(255, 255, 255, letterAlpha * ageFactor);
+        fill(255, 255, 255, letterAlpha); // ageFactor 제거하여 더 밝게
         noStroke();
         
         text(letter.char, 0, 0);
@@ -187,7 +178,7 @@ function draw() {
     // 블러 필터 제거
     drawingContext.filter = 'none';
     
-    // 파티클 업데이트 및 그리기 (줌 바깥에서)
+    // 파티클 업데이트 및 그리기
     for (let i = particles.length - 1; i >= 0; i--) {
         let p = particles[i];
         p.update();
@@ -198,13 +189,11 @@ function draw() {
         }
     }
     
-    pop(); // 줌 pop
-    
     // Instructions
     push();
     fill(150);
     textSize(16);
-    text('Press any key to add letters | Hold SPACE for 2x speed | Scroll to rewind/forward', width / 2, height - 50);
+    text('Press any key to add letters | Hold SPACE for 2x speed | RIGHT ARROW for next circle | Scroll to rewind/forward', width / 2, height - 50);
     pop();
 }
 
@@ -212,6 +201,14 @@ function keyPressed() {
     // 스페이스바 눌림 감지
     if (keyCode === 32) { // 스페이스바
         isSpacePressed = true;
+        return false;
+    }
+    
+    // 오른쪽 화살표 키로 블러 시작
+    if (keyCode === RIGHT_ARROW) {
+        // 회전 완료 상태로 설정하여 블러 효과 시작 (딜레이 있음)
+        hasCompletedRotation = true;
+        lastInputTime = millis(); // 현재 시간으로 설정하여 딜레이 후 블러 시작
         return false;
     }
     
@@ -223,6 +220,15 @@ function keyPressed() {
     
     // 일반 글자 입력 (스페이스 제외) - 눌린 시간 기록
     if (key.length === 1 && keyCode !== 32) {
+        // 흐림 중에 다른 키 누르면 취소
+        if (hasCompletedRotation || isWaitingForZoom) {
+            hasCompletedRotation = false;
+            isWaitingForZoom = false;
+            targetBlur = 0;
+            blurAmount = 0;
+            lastInputTime = millis();
+        }
+        
         if (!keyPressStartTime[key]) {
             keyPressStartTime[key] = millis();
         }
@@ -239,6 +245,14 @@ function keyReleased() {
     
     // 일반 글자 입력 (스페이스 제외)
     if (key.length === 1 && keyCode !== 32) {
+        // 흐림 중에 다른 키 누르면 취소 (keyReleased에서도 처리)
+        if (hasCompletedRotation || isWaitingForZoom) {
+            hasCompletedRotation = false;
+            isWaitingForZoom = false;
+            targetBlur = 0;
+            blurAmount = 0;
+        }
+        
         lastInputTime = millis(); // 입력 시간 갱신
         targetBlur = 0; // 블러 즉시 제거
         hasCompletedRotation = false; // 블러 진행 중이었다면 취소
@@ -300,60 +314,52 @@ function addNewCircle() {
     currentCircleLevel++;
 }
 
-// 줌아웃과 함께 새 원 추가
+// 줌아웃과 함께 새 원 추가 - 심플 버전
 function addNewCircleWithZoom() {
     currentCircleLevel++;
-    // 줌아웃 효과 - 새로 추가된 원까지 포함하여 계산
-    let newMaxRadius = baseRadius + (currentCircleLevel * radiusIncrement);
-    targetZoom = (height * 0.9) / (newMaxRadius * 2); // 여유있게 0.9로 조정
+    targetBlur = 0;
+    blurAmount = 0;
+    hasCompletedRotation = false;
+    
+    // 줌아웃 없이 그냥 새 원만 추가
+    // targetZoom = 1; // 줌 고정
 }
 
-// 파티클 생성
+// 파티클 생성 - 레터 입력시
 function createParticles() {
     let centerX = width / 2;
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
     
-    // 12시 방향 위치 계산 (고정된 눈금 위치)
-    let angle12 = -PI / 2; // 고정된 12시 방향
+    // 12시 방향 위치 계산
+    let angle12 = -PI / 2;
+    let particleX = centerX + cos(angle12) * currentRadius;
+    let particleY = centerY + sin(angle12) * currentRadius;
     
-    // 줌을 고려한 반지름
-    let zoomedRadius = currentRadius * zoomLevel;
-    
-    // 고정된 12시 방향 눈금 위치
-    let particleX = centerX + cos(angle12) * zoomedRadius;
-    let particleY = centerY + sin(angle12) * zoomedRadius;
-    
-    // 파티클 개수 줄이기 (8 -> 5)
+    // 파티클 생성
     for (let i = 0; i < 5; i++) {
         particles.push(new Particle(particleX, particleY));
     }
 }
 
-// Rewind 파티클 생성 (바깥쪽으로)
+// Rewind 파티클 생성 (파란색)
 function createRewindParticles(scrollSpeed) {
     let centerX = width / 2;
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
     
-    // 고정된 12시 방향 (회전 각도와 무관하게)
+    // 12시 방향 위치
     let angle12 = -PI / 2;
+    let particleX = centerX + cos(angle12) * currentRadius;
+    let particleY = centerY + sin(angle12) * currentRadius;
     
-    // 줌을 고려한 반지름
-    let zoomedRadius = currentRadius * zoomLevel;
-    
-    // 12시 방향 위치 (항상 눈금 근처)
-    let particleX = centerX + cos(angle12) * zoomedRadius;
-    let particleY = centerY + sin(angle12) * zoomedRadius;
-    
-    // 왼쪽 방향 (PI = 180도)
+    // 왼쪽 방향
     let leftDirection = PI;
     
-    // 스크롤 속도에 비례한 파티클 수와 속도
-    let particleCount = Math.min(Math.floor(scrollSpeed * 500), 10); // 최대 10개
-    let speedMultiplier = 1 + scrollSpeed * 100; // 속도 배율
+    // 스크롤 속도에 비례한 파티클
+    let particleCount = Math.min(Math.floor(scrollSpeed * 500), 10);
+    let speedMultiplier = 1 + scrollSpeed * 100;
     
-    // 왼쪽으로 튀는 파티클
     for (let i = 0; i < particleCount; i++) {
         particles.push(new RewindParticle(particleX, particleY, leftDirection, speedMultiplier));
     }
@@ -432,12 +438,12 @@ class RewindParticle {
     }
 }
 
-// 키보드로 새 원 추가 또는 블러 시작 (예: Enter 키)
+// 키보드로 블러 시작 (Enter 키) - 사용 안함
 function keyTyped() {
-    if (key === '\n' || key === '\r') { // Enter 키
-        // 회전 완료 상태로 설정하여 블러 효과 즉시 시작
-        hasCompletedRotation = true;
-        lastInputTime = 0; // 블러가 바로 시작되도록 설정
-    }
+    // Enter 키 기능 제거 (Right Arrow로 이동)
+    // if (key === '\n' || key === '\r') { // Enter 키
+    //     hasCompletedRotation = true;
+    //     lastInputTime = millis() - 3000;
+    // }
     return false;
 }

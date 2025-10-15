@@ -108,13 +108,17 @@ function draw() {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
         
-        // 각 원마다 12시 방향 눈금 (바깥쪽)
+        // 각 원마다 12시 방향 눈금 - 아래쪽이 뾰족한 삼각형
         push();
-        stroke(200, 200, 200);
-        strokeWeight(2);
-        let tickLength = 10;
-        line(centerX, centerY - radius - tickLength, 
-             centerX, centerY - radius - tickLength * 2);
+        fill(200, 200, 200);
+        noStroke();
+        let triangleSize = 12;
+        let triangleY = centerY - radius - triangleSize;
+        triangle(
+            centerX, triangleY + triangleSize, // 아래 꼭지점 (뾰족한 부분)
+            centerX - triangleSize/2, triangleY - triangleSize/2, // 왼쪽 위
+            centerX + triangleSize/2, triangleY - triangleSize/2  // 오른쪽 위
+        );
         pop();
     }
     pop();
@@ -235,8 +239,9 @@ function mouseWheel(event) {
     
     // 뒤로 감기(rewind) 감지 - 파티클 효과
     if (scrollAmount < 0) {
-        // 뒤로 감는 중 - 파티클 생성
-        createRewindParticles();
+        // 뒤로 감는 중 - 스크롤 속도에 비례해서 파티클 생성
+        let scrollSpeed = abs(scrollAmount);
+        createRewindParticles(scrollSpeed);
     }
     
     // 한 바퀴(2π) 회전 감지 (스크롤로도)
@@ -292,7 +297,7 @@ function createParticles() {
 }
 
 // Rewind 파티클 생성 (바깥쪽으로)
-function createRewindParticles() {
+function createRewindParticles(scrollSpeed) {
     let centerX = width / 2;
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
@@ -310,9 +315,13 @@ function createRewindParticles() {
     // 왼쪽 방향 (PI = 180도)
     let leftDirection = PI;
     
+    // 스크롤 속도에 비례한 파티클 수와 속도
+    let particleCount = Math.min(Math.floor(scrollSpeed * 500), 10); // 최대 10개
+    let speedMultiplier = 1 + scrollSpeed * 100; // 속도 배율
+    
     // 왼쪽으로 튀는 파티클
-    for (let i = 0; i < 5; i++) {
-        particles.push(new RewindParticle(particleX, particleY, leftDirection));
+    for (let i = 0; i < particleCount; i++) {
+        particles.push(new RewindParticle(particleX, particleY, leftDirection, speedMultiplier));
     }
 }
 
@@ -354,16 +363,17 @@ class Particle {
 
 // Rewind 파티클 클래스 (바깥쪽으로 튐)
 class RewindParticle {
-    constructor(x, y, direction) {
+    constructor(x, y, direction, speedMultiplier = 1) {
         this.x = x;
         this.y = y;
-        // 왼쪽으로 강하게 튐
-        let speed = random(4, 7); // 더 빠르게
-        let angleVariation = random(-0.2, 0.2); // 약간의 변화
+        // 왼쪽으로 훨씬 더 강하게 튐
+        let baseSpeed = random(8, 15); // 기본 속도 증가
+        let speed = baseSpeed * speedMultiplier; // 스크롤 속도에 비례
+        let angleVariation = random(-0.15, 0.15); // 약간의 변화
         this.vx = cos(direction + angleVariation) * speed;
         this.vy = sin(direction + angleVariation) * speed;
         this.alpha = 220;
-        this.size = random(2, 5); // 더 크게
+        this.size = random(2, 6); // 더 크게
         this.life = 0;
     }
     
@@ -371,9 +381,9 @@ class RewindParticle {
         this.x += this.vx;
         this.y += this.vy;
         // 약간의 감속
-        this.vx *= 0.96;
-        this.vy *= 0.96;
-        this.alpha -= 6; // 천천히 사라짐
+        this.vx *= 0.97;
+        this.vy *= 0.97;
+        this.alpha -= 4; // 더 천천히 사라짐
         this.life++;
     }
     
@@ -384,7 +394,7 @@ class RewindParticle {
     }
     
     isDead() {
-        return this.alpha <= 0 || this.life > 40; // 더 오래 살아있음
+        return this.alpha <= 0 || this.life > 60; // 더 오래 살아있음
     }
 }
 

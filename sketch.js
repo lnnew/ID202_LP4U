@@ -33,13 +33,15 @@ function draw() {
     // 모든 글자 그리기
     push();
     translate(centerX, centerY);
-    rotate(angle);
     
     for (let i = 0; i < letters.length; i++) {
+        let letter = letters[i];
+        
         push();
         
-        // 모든 글자가 12시 방향에 위치
-        let letterAngle = -PI / 2; // 12시 방향 (-90도)
+        // 각 글자의 현재 각도 = 입력 시점 각도 + 전체 회전
+        // 새 글자는 항상 12시(-PI/2)에서 시작하고, 시간이 지나면서 회전
+        let letterAngle = letter.startAngle + angle;
         
         // 글자 위치 계산
         let x = cos(letterAngle) * radius;
@@ -51,12 +53,11 @@ function draw() {
         rotate(-angle);
         
         // 글자 색상 (오래된 것일수록 어둡게)
-        let alpha = map(i, 0, letters.length - 1, 100, 255);
+        let alpha = map(i, 0, max(letters.length - 1, 1), 100, 255);
         fill(255, 255, 255, alpha);
         noStroke();
         
-        // 모든 글자를 같은 위치에 겹쳐서 그림
-        text(letters[i], 0, 0);
+        text(letter.char, 0, 0);
         pop();
     }
     
@@ -73,7 +74,12 @@ function draw() {
 function keyPressed() {
     // 특수 키 제외
     if (key.length === 1) {
-        letters.push(key);
+        // 새 글자는 항상 12시 방향(-PI/2)에서 시작
+        // 현재 회전 각도를 빼서, 전역 회전이 더해졌을 때 12시가 되도록 함
+        letters.push({
+            char: key,
+            startAngle: -PI / 2 - angle
+        });
         
         // 너무 많은 글자가 쌓이지 않도록 제한 (옵션)
         if (letters.length > 50) {

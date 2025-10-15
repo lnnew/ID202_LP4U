@@ -23,6 +23,10 @@ function setup() {
     textSize(32);
     angleMode(RADIANS);
     lastInputTime = millis();
+    
+    // 성능 최적화
+    frameRate(60); // 프레임레이트 제한
+    pixelDensity(1); // 레티나 디스플레이 픽셀 밀도 제한
 }
 
 function draw() {
@@ -118,6 +122,9 @@ function draw() {
     // 모든 글자 그리기
     push();
     translate(centerX, centerY);
+    
+    // 글자 렌더링 최적화
+    textFont('Arial'); // 시스템 폰트 사용
     
     for (let i = 0; i < letters.length; i++) {
         let letter = letters[i];
@@ -272,8 +279,8 @@ function createParticles() {
     let particleX = zoomedCenterX + cos(angle12) * zoomedRadius;
     let particleY = zoomedCenterY + sin(angle12) * zoomedRadius;
     
-    // 더 적고 작은 파티클
-    for (let i = 0; i < 8; i++) {
+    // 파티클 개수 줄이기 (8 -> 5)
+    for (let i = 0; i < 5; i++) {
         particles.push(new Particle(particleX, particleY));
     }
 }
@@ -290,6 +297,7 @@ class Particle {
         this.vy = sin(angle) * speed;
         this.alpha = 200;
         this.size = random(1.5, 3); // 아주 작게
+        this.life = 0; // 생명 카운터 추가
     }
     
     update() {
@@ -299,18 +307,17 @@ class Particle {
         this.vx *= 0.92;
         this.vy *= 0.92;
         this.alpha -= 10; // 빠르게 페이드
+        this.life++;
     }
     
     display() {
-        push();
         noStroke();
         fill(255, 255, 255, this.alpha);
         circle(this.x, this.y, this.size);
-        pop();
     }
     
     isDead() {
-        return this.alpha <= 0;
+        return this.alpha <= 0 || this.life > 25; // 최대 생명 제한
     }
 }
 

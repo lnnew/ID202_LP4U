@@ -16,6 +16,7 @@ let hasCompletedRotation = false; // 한 바퀴 완료 여부
 let isWaitingForZoom = false; // 줌아웃 대기 중
 let blurAmount = 0; // 블러 강도
 let targetBlur = 0; // 목표 블러 강도
+let isRewinding = false; // 리와인드 중 여부
 
 function setup() {
     createCanvas(800, 800);
@@ -107,7 +108,6 @@ function draw() {
     for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
-        
         // 각 원마다 12시 방향 눈금 - 아래쪽이 뾰족한 삼각형
         push();
         fill(200, 200, 200);
@@ -115,27 +115,28 @@ function draw() {
         let triangleSize = 12;
         let triangleY = centerY - radius - triangleSize;
         triangle(
-            centerX, triangleY + triangleSize, // 아래 꼭지점 (뾰족한 부분)
-            centerX - triangleSize/2, triangleY - triangleSize/2, // 왼쪽 위
-            centerX + triangleSize/2, triangleY - triangleSize/2  // 오른쪽 위
+            centerX, triangleY + triangleSize,
+            centerX - triangleSize/2, triangleY - triangleSize/2,
+            centerX + triangleSize/2, triangleY - triangleSize/2
         );
         pop();
-
-        // 눈금과 원이 맞닿는 부분에 잔잔한 치직 효과
-        let sparkCount = 8;
-        let sparkBaseAngle = -PI / 2;
-        let sparkRadius = radius + 1;
-        for (let s = 0; s < sparkCount; s++) {
-            let sparkAngle = sparkBaseAngle + random(-0.12, 0.12); // 눈금 근처
-            let sx = centerX + cos(sparkAngle) * sparkRadius + random(-2,2);
-            let sy = centerY + sin(sparkAngle) * sparkRadius + random(-2,2);
-            let ex = sx + random(-6, 6);
-            let ey = sy + random(-6, 6);
-            stroke(220, 220, 255, 120);
-            strokeWeight(1.2);
-            line(sx, sy, ex, ey);
+        // 눈금과 원이 맞닿는 부분에 잔잔한 치직 효과 (리와인드 중에는 없음)
+        if (!isRewinding) {
+            let sparkCount = 8;
+            let sparkBaseAngle = -PI / 2;
+            let sparkRadius = radius + 1;
+            for (let s = 0; s < sparkCount; s++) {
+                let sparkAngle = sparkBaseAngle + random(-0.12, 0.12);
+                let sx = centerX + cos(sparkAngle) * sparkRadius + random(-2,2);
+                let sy = centerY + sin(sparkAngle) * sparkRadius + random(-2,2);
+                let ex = sx + random(-2, 2); // width 1/3로 줄임
+                let ey = sy + random(-2, 2);
+                stroke(220, 220, 255, 120);
+                strokeWeight(0.4); // 1/3로 줄임
+                line(sx, sy, ex, ey);
+            }
+            noStroke();
         }
-        noStroke();
     }
     pop();
     
@@ -249,15 +250,15 @@ function keyReleased() {
 function mouseWheel(event) {
     // 마우스 휠로 시간 제어 (회전 각도 조절)
     let scrollAmount = event.delta * 0.001; // 스크롤 감도 조절
-    
     previousAngle = angle;
     angle += scrollAmount;
-    
     // 뒤로 감기(rewind) 감지 - 파티클 효과
     if (scrollAmount < 0) {
-        // 뒤로 감는 중 - 스크롤 속도에 비례해서 파티클 생성
+        isRewinding = true;
         let scrollSpeed = abs(scrollAmount);
         createRewindParticles(scrollSpeed);
+    } else {
+        isRewinding = false;
     }
     
     // 한 바퀴(2π) 회전 감지 (스크롤로도)

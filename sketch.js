@@ -120,6 +120,22 @@ function draw() {
             centerX + triangleSize/2, triangleY - triangleSize/2  // 오른쪽 위
         );
         pop();
+
+        // 눈금과 원이 맞닿는 부분에 잔잔한 치직 효과
+        let sparkCount = 8;
+        let sparkBaseAngle = -PI / 2;
+        let sparkRadius = radius + 1;
+        for (let s = 0; s < sparkCount; s++) {
+            let sparkAngle = sparkBaseAngle + random(-0.12, 0.12); // 눈금 근처
+            let sx = centerX + cos(sparkAngle) * sparkRadius + random(-2,2);
+            let sy = centerY + sin(sparkAngle) * sparkRadius + random(-2,2);
+            let ex = sx + random(-6, 6);
+            let ey = sy + random(-6, 6);
+            stroke(220, 220, 255, 120);
+            strokeWeight(1.2);
+            line(sx, sy, ex, ey);
+        }
+        noStroke();
     }
     pop();
     
@@ -366,35 +382,35 @@ class RewindParticle {
     constructor(x, y, direction, speedMultiplier = 1) {
         this.x = x;
         this.y = y;
-        // 왼쪽으로 훨씬 더 강하게 튐, 위쪽으로도 조금 튐
-        let baseSpeed = random(8, 15); // 기본 속도 증가
-        let speed = baseSpeed * speedMultiplier; // 스크롤 속도에 비례
-        let angleVariation = random(-0.3, 0.3); // 적당한 변화 (약 ±17도)
+        // 왼쪽으로 튀고, 위쪽으로도 살짝 튐 (조금 더 느리고 가까이)
+        let baseSpeed = random(4, 8); // 더 느리고 가까이
+        let speed = baseSpeed * speedMultiplier * 0.7; // 전체적으로 덜 빠르게
+        let angleVariation = random(-0.15, 0.4); // 아래로는 적게, 위로는 더 많이
         this.vx = cos(direction + angleVariation) * speed;
         this.vy = sin(direction + angleVariation) * speed;
         this.alpha = 220;
-        this.size = random(2, 6); // 더 크게
+        this.size = random(2, 5);
         this.life = 0;
     }
     
     update() {
         this.x += this.vx;
         this.y += this.vy;
-        // 약간의 감속
-        this.vx *= 0.97;
-        this.vy *= 0.97;
-        this.alpha -= 4; // 더 천천히 사라짐
+        // 더 강한 감속
+        this.vx *= 0.93;
+        this.vy *= 0.93;
+        this.alpha -= 5;
         this.life++;
     }
     
     display() {
         noStroke();
-        fill(150, 200, 255, this.alpha); // 파란색 톤
+        fill(150, 200, 255, this.alpha);
         circle(this.x, this.y, this.size);
     }
     
     isDead() {
-        return this.alpha <= 0 || this.life > 60; // 더 오래 살아있음
+        return this.alpha <= 0 || this.life > 45;
     }
 }
 

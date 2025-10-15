@@ -1,7 +1,5 @@
 let letters = [];
 let particles = []; // 파티클 배열
-let traces = []; // 원 위의 흔적들
-let currentTrace = null; // 현재 그리고 있는 흔적
 let angle = 0;
 let previousAngle = 0; // 이전 각도 추적
 let baseSpeed = 0.005; // 기본 회전 속도
@@ -75,12 +73,6 @@ function draw() {
     previousAngle = angle;
     angle += rotationSpeed;
     
-    // 현재 타이핑 중이면 시작 각도를 회전에 맞춰 업데이트
-    if (currentTrace) {
-        // 회전한 만큼 시작 각도를 뒤로 이동
-        currentTrace.startAngle -= rotationSpeed;
-    }
-    
     // 한 바퀴(2π) 회전 감지
     let prevRotations = Math.floor(previousAngle / TWO_PI);
     let currRotations = Math.floor(angle / TWO_PI);
@@ -119,53 +111,6 @@ function draw() {
              centerX, centerY - radius - tickLength * 2);
         pop();
     }
-    pop();
-    
-    // 원 위의 흔적(traces) 그리기 - 글자보다 먼저
-    push();
-    translate(centerX, centerY);
-    rotate(angle); // 원과 함께 회전
-    
-    // 저장된 흔적들 그리기
-    for (let trace of traces) {
-        let radius = baseRadius + (trace.circleLevel * radiusIncrement);
-        
-        // 각도 차이 확인
-        let angleDiff = trace.endAngle - trace.startAngle;
-        
-        // 각도 차이가 있을 때만 그리기
-        if (abs(angleDiff) > 0.01) {
-            push();
-            noFill();
-            stroke(255, 255, 255, 150);
-            strokeWeight(5);
-            strokeCap(ROUND);
-            
-            // 호(arc) 그리기
-            arc(0, 0, radius * 2, radius * 2, trace.startAngle, trace.endAngle);
-            pop();
-        }
-    }
-    
-    // 현재 타이핑 중인 흔적 그리기 (실시간)
-    if (currentTrace) {
-        let radius = baseRadius + (currentTrace.circleLevel * radiusIncrement);
-        let angleDiff = currentTrace.endAngle - currentTrace.startAngle;
-        
-        // 각도 차이가 있을 때만 그리기
-        if (abs(angleDiff) > 0.01) {
-            push();
-            noFill();
-            stroke(255, 255, 255, 200);
-            strokeWeight(5);
-            strokeCap(ROUND);
-            
-            // 시작점부터 끝점(12시)까지
-            arc(0, 0, radius * 2, radius * 2, currentTrace.startAngle, currentTrace.endAngle);
-            pop();
-        }
-    }
-    
     pop();
     
     // 모든 글자 그리기
@@ -248,15 +193,6 @@ function keyPressed() {
         lastInputTime = millis(); // 입력 시간 갱신
         targetBlur = 0; // 블러 즉시 제거
         
-        // 첫 글자 입력 시작 - 새로운 흔적 시작
-        if (!currentTrace) {
-            currentTrace = {
-                startAngle: -PI / 2, // 12시 방향에서 시작
-                endAngle: -PI / 2,
-                circleLevel: currentCircleLevel
-            };
-        }
-        
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
         letters.push({
             char: key,
@@ -275,20 +211,6 @@ function keyReleased() {
     // 스페이스바 뗌 감지
     if (keyCode === 32) {
         isSpacePressed = false;
-        return false;
-    }
-    
-    // 현재 흔적이 있으면 저장 (어떤 키든 상관없이)
-    if (currentTrace) {
-        // 흔적 배열에 저장
-        traces.push({
-            startAngle: currentTrace.startAngle,
-            endAngle: currentTrace.endAngle,
-            circleLevel: currentTrace.circleLevel
-        });
-        
-        // 현재 흔적 초기화
-        currentTrace = null;
     }
     
     return false;
@@ -323,9 +245,10 @@ function createParticles() {
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
     
-    // 12시 방향 위치 (줌 고려)
-    let particleX = centerX;
-    let particleY = centerY - currentRadius * zoomLevel;
+    // 12시 방향 위치 (줌 고려 + 회전 고려)
+    let angle12 = -PI / 2; // 12시 방향
+    let particleX = centerX + cos(angle12) * currentRadius * zoomLevel;
+    let particleY = centerY + sin(angle12) * currentRadius * zoomLevel;
     
     // 더 적고 작은 파티클
     for (let i = 0; i < 8; i++) {

@@ -1,6 +1,7 @@
 let letters = [];
 let particles = []; // 파티클 배열
 let traces = []; // 원 위의 흔적들
+let currentTrace = null; // 현재 그리고 있는 흔적
 let angle = 0;
 let previousAngle = 0; // 이전 각도 추적
 let baseSpeed = 0.005; // 기본 회전 속도
@@ -17,8 +18,6 @@ let hasCompletedRotation = false; // 한 바퀴 완료 여부
 let isWaitingForZoom = false; // 줌아웃 대기 중
 let blurAmount = 0; // 블러 강도
 let targetBlur = 0; // 목표 블러 강도
-let isTyping = false; // 타이핑 중인지
-let typingStartAngle = 0; // 타이핑 시작 각도
 
 function setup() {
     createCanvas(800, 800);
@@ -119,19 +118,38 @@ function draw() {
     // 원 위의 흔적(traces) 그리기
     push();
     translate(centerX, centerY);
+    
+    // 저장된 흔적들 그리기
     for (let trace of traces) {
         let radius = baseRadius + (trace.circleLevel * radiusIncrement);
         
         push();
         noFill();
-        stroke(255, 255, 255, 180);
-        strokeWeight(4);
+        stroke(255, 255, 255, 150);
+        strokeWeight(5);
         strokeCap(ROUND);
         
         // 호(arc) 그리기
         arc(0, 0, radius * 2, radius * 2, trace.startAngle, trace.endAngle);
         pop();
     }
+    
+    // 현재 타이핑 중인 흔적 그리기 (실시간)
+    if (currentTrace) {
+        let radius = baseRadius + (currentTrace.circleLevel * radiusIncrement);
+        
+        push();
+        noFill();
+        stroke(255, 255, 255, 200);
+        strokeWeight(5);
+        strokeCap(ROUND);
+        
+        // 시작점부터 현재 12시 방향까지
+        let currentAngle = -PI / 2;
+        arc(0, 0, radius * 2, radius * 2, currentTrace.startAngle, currentAngle);
+        pop();
+    }
+    
     pop();
     
     // 모든 글자 그리기
@@ -214,10 +232,12 @@ function keyPressed() {
         lastInputTime = millis(); // 입력 시간 갱신
         targetBlur = 0; // 블러 즉시 제거
         
-        // 첫 글자 입력 시작
-        if (!isTyping) {
-            isTyping = true;
-            typingStartAngle = -PI / 2; // 12시 방향에서 시작
+        // 첫 글자 입력 시작 - 새로운 흔적 시작
+        if (!currentTrace) {
+            currentTrace = {
+                startAngle: -PI / 2, // 12시 방향에서 시작
+                circleLevel: currentCircleLevel
+            };
         }
         
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
@@ -240,19 +260,20 @@ function keyReleased() {
         isSpacePressed = false;
     }
     
-    // 일반 글자 키를 뗐을 때 - 타이핑 종료 및 흔적 저장
-    if (key.length === 1 && keyCode !== 32 && isTyping) {
-        isTyping = false;
+    // 일반 글자 키를 뗐을 때 - 흔적 저장
+    if (key.length === 1 && keyCode !== 32 && currentTrace) {
+        // 현재 12시 방향에서 흔적 종료
+        currentTrace.endAngle = -PI / 2;
         
-        // 현재 각도에서 흔적 종료
-        let endAngle = -PI / 2;
-        
-        // 흔적 저장
+        // 흔적 배열에 저장
         traces.push({
-            startAngle: typingStartAngle,
-            endAngle: endAngle,
-            circleLevel: currentCircleLevel
+            startAngle: currentTrace.startAngle,
+            endAngle: currentTrace.endAngle,
+            circleLevel: currentTrace.circleLevel
         });
+        
+        // 현재 흔적 초기화
+        currentTrace = null;
     }
     
     return false;

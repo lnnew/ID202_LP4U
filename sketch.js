@@ -38,19 +38,19 @@ function draw() {
     // 블러 효과 부드럽게 전환
     blurAmount = lerp(blurAmount, targetBlur, 0.08);
     
-    // 한 바퀴 완료 후 5초간 입력 없으면 새 원 생성
+    // 한 바퀴 완료 후 7초간 입력 없으면 새 원 생성
     if (hasCompletedRotation && !isWaitingForZoom) {
         let timeSinceInput = millis() - lastInputTime;
         
-        // 3초부터 블러 시작, 5초에 최대
+        // 3초부터 블러 시작, 7초에 최대
         if (timeSinceInput > 3000) {
-            let progress = map(timeSinceInput, 3000, 5000, 0, 1);
+            let progress = map(timeSinceInput, 3000, 7000, 0, 1);
             progress = constrain(progress, 0, 1);
             
             targetBlur = progress * 10; // 블러 강도 증가
         }
         
-        if (timeSinceInput > 5000) {
+        if (timeSinceInput > 7000) {
             isWaitingForZoom = true;
             // 잠깐 멈춤
             setTimeout(() => {
@@ -194,6 +194,7 @@ function keyPressed() {
     if (key.length === 1 && keyCode !== 32) {
         lastInputTime = millis(); // 입력 시간 갱신
         targetBlur = 0; // 블러 즉시 제거
+        hasCompletedRotation = false; // 블러 진행 중이었다면 취소
         
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
         letters.push({

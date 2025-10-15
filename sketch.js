@@ -1,8 +1,10 @@
 let letters = [];
 let angle = 0;
-let rotationSpeed = 0.005; // 느린 회전 속도
+let baseSpeed = 0.005; // 기본 회전 속도
+let rotationSpeed = 0.005; // 현재 회전 속도
 let baseRadius = 200; // 첫 번째 원의 반지름
 let radiusIncrement = 60; // 각 원 사이의 간격
+let isSpacePressed = false; // 스페이스바 눌림 상태
 
 function setup() {
     createCanvas(800, 800);
@@ -17,6 +19,9 @@ function draw() {
     // 중심점
     let centerX = width / 2;
     let centerY = height / 2;
+    
+    // 스페이스바 눌렸을 때 속도 2배
+    rotationSpeed = isSpacePressed ? baseSpeed * 2 : baseSpeed;
     
     // 회전 각도 업데이트
     angle += rotationSpeed;
@@ -83,13 +88,33 @@ function draw() {
     push();
     fill(150);
     textSize(16);
-    text('Press any key to add letters', width / 2, height - 50);
+    text('Press any key to add letters | Hold SPACE for 2x speed', width / 2, height - 50);
+    pop();
+    
+    // Credit
+    push();
+    fill(150);
+    textSize(14);
+    textAlign(RIGHT, BOTTOM);
+    text('Jihyun', width - 30, height - 30);
     pop();
 }
 
 function keyPressed() {
-    // 특수 키 제외
-    if (key.length === 1) {
+    // 스페이스바 눌림 감지
+    if (keyCode === 32) { // 스페이스바
+        isSpacePressed = true;
+        return false;
+    }
+    
+    // 백스페이스 처리
+    if (keyCode === BACKSPACE && letters.length > 0) {
+        letters.pop();
+        return false;
+    }
+    
+    // 일반 글자 입력 (스페이스 제외)
+    if (key.length === 1 && keyCode !== 32) {
         // 새 글자는 항상 12시 방향(-PI/2)에서 시작
         // 현재 회전 각도를 빼서, 전역 회전이 더해졌을 때 12시가 되도록 함
         letters.push({
@@ -103,10 +128,13 @@ function keyPressed() {
         }
     }
     
-    // 스페이스바나 백스페이스 처리
-    if (keyCode === BACKSPACE && letters.length > 0) {
-        letters.pop();
-    }
-    
     return false; // 기본 동작 방지
+}
+
+function keyReleased() {
+    // 스페이스바 뗌 감지
+    if (keyCode === 32) {
+        isSpacePressed = false;
+    }
+    return false;
 }

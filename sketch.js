@@ -256,10 +256,20 @@ function createParticles() {
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
     
-    // 12시 방향 위치 (줌 고려 + 회전 고려)
-    let angle12 = -PI / 2; // 12시 방향
-    let particleX = centerX + cos(angle12) * currentRadius * zoomLevel;
-    let particleY = centerY + sin(angle12) * currentRadius * zoomLevel;
+    // 12시 방향 위치 계산
+    // 회전을 고려한 실제 위치
+    let angle12 = -PI / 2 + angle; // 12시 방향 + 현재 회전
+    
+    // 줌을 고려한 중심점 계산
+    let zoomedCenterX = centerX;
+    let zoomedCenterY = centerY;
+    
+    // 줌을 고려한 반지름
+    let zoomedRadius = currentRadius * zoomLevel;
+    
+    // 회전된 12시 방향의 실제 위치
+    let particleX = zoomedCenterX + cos(angle12) * zoomedRadius;
+    let particleY = zoomedCenterY + sin(angle12) * zoomedRadius;
     
     // 더 적고 작은 파티클
     for (let i = 0; i < 8; i++) {

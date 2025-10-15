@@ -123,6 +123,7 @@ function draw() {
     // 원 위의 흔적(traces) 그리기
     push();
     translate(centerX, centerY);
+    rotate(angle); // 원과 함께 회전
     
     // 저장된 흔적들 그리기
     for (let trace of traces) {
@@ -149,7 +150,7 @@ function draw() {
         strokeWeight(5);
         strokeCap(ROUND);
         
-        // 시작점부터 현재 12시 방향까지
+        // 시작점부터 현재 12시 방향까지 (회전 보정 제거)
         let currentAngle = -PI / 2;
         arc(0, 0, radius * 2, radius * 2, currentTrace.startAngle, currentAngle);
         pop();
@@ -240,13 +241,10 @@ function keyPressed() {
         // 첫 글자 입력 시작 - 새로운 흔적 시작
         if (!currentTrace) {
             currentTrace = {
-                startAngle: -PI / 2 - 0.1, // 12시 방향보다 약간 이전에서 시작
+                startAngle: -PI / 2, // 12시 방향에서 시작
                 endAngle: -PI / 2,
                 circleLevel: currentCircleLevel
             };
-        } else {
-            // 계속 타이핑 중이면 끝 각도 확장
-            currentTrace.endAngle = -PI / 2 + 0.1; // 약간 앞으로
         }
         
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가

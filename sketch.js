@@ -104,7 +104,7 @@ function draw() {
     push();
     noFill();
     stroke(80, 80, 80);
-    strokeWeight(1);
+    strokeWeight(2); // 선 두께 증가하여 더 잘 보이도록
     for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
@@ -292,20 +292,15 @@ function createParticles() {
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
     
-    // 12시 방향 위치 계산
-    // 회전을 고려한 실제 위치
-    let angle12 = -PI / 2 + angle; // 12시 방향 + 현재 회전
-    
-    // 줌을 고려한 중심점 계산
-    let zoomedCenterX = centerX;
-    let zoomedCenterY = centerY;
+    // 12시 방향 위치 계산 (고정된 눈금 위치)
+    let angle12 = -PI / 2; // 고정된 12시 방향
     
     // 줌을 고려한 반지름
     let zoomedRadius = currentRadius * zoomLevel;
     
-    // 회전된 12시 방향의 실제 위치
-    let particleX = zoomedCenterX + cos(angle12) * zoomedRadius;
-    let particleY = zoomedCenterY + sin(angle12) * zoomedRadius;
+    // 고정된 12시 방향 눈금 위치
+    let particleX = centerX + cos(angle12) * zoomedRadius;
+    let particleY = centerY + sin(angle12) * zoomedRadius;
     
     // 파티클 개수 줄이기 (8 -> 5)
     for (let i = 0; i < 5; i++) {

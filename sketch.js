@@ -415,10 +415,12 @@ class RewindParticle {
     }
 }
 
-// 키보드로 새 원 추가 (예: Enter 키)
+// 키보드로 새 원 추가 또는 블러 시작 (예: Enter 키)
 function keyTyped() {
     if (key === '\n' || key === '\r') { // Enter 키
-        addNewCircleWithZoom();
+        // 회전 완료 상태로 설정하여 블러 효과 즉시 시작
+        hasCompletedRotation = true;
+        lastInputTime = millis() - 3000; // 3초가 지난 것처럼 설정하여 블러 바로 시작
     }
     return false;
 }

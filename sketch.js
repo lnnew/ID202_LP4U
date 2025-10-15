@@ -17,6 +17,7 @@ let isWaitingForZoom = false; // 줌아웃 대기 중
 let blurAmount = 0; // 블러 강도
 let targetBlur = 0; // 목표 블러 강도
 let isRewinding = false; // 리와인드 중 여부
+let keyPressStartTime = {}; // 각 키의 눌린 시작 시간
 
 function setup() {
     createCanvas(800, 800);
@@ -95,12 +96,7 @@ function draw() {
     scale(zoomLevel);
     translate(-centerX, -centerY);
     
-    // 블러 효과 적용
-    if (blurAmount > 0.1) {
-        drawingContext.filter = `blur(${blurAmount}px)`;
-    }
-    
-    // 모든 원 그리기 (현재 레벨까지)
+    // 모든 원 그리기 (현재 레벨까지) - 블러 효과 없이
     push();
     noFill();
     stroke(80, 80, 80);
@@ -140,6 +136,11 @@ function draw() {
     }
     pop();
     
+    // 블러 효과는 글자에만 적용
+    if (blurAmount > 0.1) {
+        drawingContext.filter = `blur(${blurAmount}px)`;
+    }
+    
     // 모든 글자 그리기
     push();
     translate(centerX, centerY);
@@ -170,9 +171,11 @@ function draw() {
         // 글자를 항상 읽을 수 있게 회전 보정
         rotate(-angle);
         
-        // 글자 색상 (오래된 것일수록 어둡게)
-        let alpha = map(i, 0, max(letters.length - 1, 1), 100, 255);
-        fill(255, 255, 255, alpha);
+        // 글자 투명도: 키를 누른 시간에 따라 (0.5초~3초)
+        let letterAlpha = letter.opacity || 255;
+        // 오래된 것일수록 약간 더 어둡게 (선택사항)
+        let ageFactor = map(i, 0, max(letters.length - 1, 1), 0.8, 1);
+        fill(255, 255, 255, letterAlpha * ageFactor);
         noStroke();
         
         text(letter.char, 0, 0);
@@ -218,21 +221,11 @@ function keyPressed() {
         return false;
     }
     
-    // 일반 글자 입력 (스페이스 제외)
+    // 일반 글자 입력 (스페이스 제외) - 눌린 시간 기록
     if (key.length === 1 && keyCode !== 32) {
-        lastInputTime = millis(); // 입력 시간 갱신
-        targetBlur = 0; // 블러 즉시 제거
-        hasCompletedRotation = false; // 블러 진행 중이었다면 취소
-        
-        // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
-        letters.push({
-            char: key,
-            startAngle: -PI / 2 - angle,
-            circleLevel: currentCircleLevel // 현재 원 레벨에 고정
-        });
-        
-        // 파티클 효과 생성 (12시 방향)
-        createParticles();
+        if (!keyPressStartTime[key]) {
+            keyPressStartTime[key] = millis();
+        }
     }
     
     return false; // 기본 동작 방지
@@ -242,6 +235,35 @@ function keyReleased() {
     // 스페이스바 뗌 감지
     if (keyCode === 32) {
         isSpacePressed = false;
+    }
+    
+    // 일반 글자 입력 (스페이스 제외)
+    if (key.length === 1 && keyCode !== 32) {
+        lastInputTime = millis(); // 입력 시간 갱신
+        targetBlur = 0; // 블러 즉시 제거
+        hasCompletedRotation = false; // 블러 진행 중이었다면 취소
+        
+        // 키를 누른 시간 계산 (0.5초 ~ 3초)
+        let pressDuration = 0;
+        if (keyPressStartTime[key]) {
+            pressDuration = millis() - keyPressStartTime[key];
+            delete keyPressStartTime[key]; // 기록 삭제
+        }
+        
+        // 누른 시간에 따라 투명도 계산 (0.5초 미만: 50, 3초 이상: 255)
+        let opacity = map(pressDuration, 500, 3000, 50, 255);
+        opacity = constrain(opacity, 50, 255);
+        
+        // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
+        letters.push({
+            char: key,
+            startAngle: -PI / 2 - angle,
+            circleLevel: currentCircleLevel, // 현재 원 레벨에 고정
+            opacity: opacity // 투명도 추가
+        });
+        
+        // 파티클 효과 생성 (12시 방향)
+        createParticles();
     }
     
     return false;

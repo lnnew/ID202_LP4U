@@ -16,8 +16,6 @@ let hasCompletedRotation = false; // 한 바퀴 완료 여부
 let isWaitingForZoom = false; // 줌아웃 대기 중
 let blurAmount = 0; // 블러 강도
 let targetBlur = 0; // 목표 블러 강도
-let whiteOverlay = 0; // 흰색 오버레이 강도
-let targetWhiteOverlay = 0; // 목표 흰색 오버레이
 
 function setup() {
     createCanvas(800, 800);
@@ -40,20 +38,16 @@ function draw() {
     // 블러 효과 부드럽게 전환
     blurAmount = lerp(blurAmount, targetBlur, 0.08);
     
-    // 흰색 오버레이 부드럽게 전환
-    whiteOverlay = lerp(whiteOverlay, targetWhiteOverlay, 0.1);
-    
     // 한 바퀴 완료 후 5초간 입력 없으면 새 원 생성
     if (hasCompletedRotation && !isWaitingForZoom) {
         let timeSinceInput = millis() - lastInputTime;
         
-        // 3초부터 블러 + 흰색 오버레이 시작, 5초에 최대
+        // 3초부터 블러 시작, 5초에 최대
         if (timeSinceInput > 3000) {
             let progress = map(timeSinceInput, 3000, 5000, 0, 1);
             progress = constrain(progress, 0, 1);
             
             targetBlur = progress * 10; // 블러 강도 증가
-            targetWhiteOverlay = progress * 150; // 흰색 오버레이 증가
         }
         
         if (timeSinceInput > 5000) {
@@ -64,12 +58,10 @@ function draw() {
                 isWaitingForZoom = false;
                 hasCompletedRotation = false;
                 targetBlur = 0; // 블러 제거
-                targetWhiteOverlay = 0; // 흰색 오버레이 제거
             }, 500);
         }
     } else {
         targetBlur = 0; // 입력 중에는 블러 없음
-        targetWhiteOverlay = 0; // 입력 중에는 흰색 오버레이 없음
     }
     
     // 스페이스바 눌렸을 때 속도 2배
@@ -177,15 +169,6 @@ function draw() {
     
     pop(); // 줌 pop
     
-    // 흰색 오버레이 (블러와 줌 바깥에서)
-    if (whiteOverlay > 0) {
-        push();
-        fill(255, 255, 255, whiteOverlay);
-        noStroke();
-        rect(0, 0, width, height);
-        pop();
-    }
-    
     // Instructions
     push();
     fill(150);
@@ -211,7 +194,6 @@ function keyPressed() {
     if (key.length === 1 && keyCode !== 32) {
         lastInputTime = millis(); // 입력 시간 갱신
         targetBlur = 0; // 블러 즉시 제거
-        targetWhiteOverlay = 0; // 흰색 오버레이 즉시 제거
         
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
         letters.push({

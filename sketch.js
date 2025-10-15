@@ -1,4 +1,5 @@
 let letters = [];
+let particles = []; // 파티클 배열
 let angle = 0;
 let previousAngle = 0; // 이전 각도 추적
 let baseSpeed = 0.005; // 기본 회전 속도
@@ -8,12 +9,18 @@ let radiusIncrement = 60; // 각 원 사이의 간격
 let isSpacePressed = false; // 스페이스바 눌림 상태
 let currentCircleLevel = 0; // 현재 활성화된 원의 레벨
 let totalRotations = 0; // 총 회전 수
+let zoomLevel = 1; // 줌 레벨
+let targetZoom = 1; // 목표 줌 레벨
+let lastInputTime = 0; // 마지막 입력 시간
+let hasCompletedRotation = false; // 한 바퀴 완료 여부
+let isWaitingForZoom = false; // 줌아웃 대기 중
 
 function setup() {
     createCanvas(800, 800);
     textAlign(CENTER, CENTER);
     textSize(32);
     angleMode(RADIANS);
+    lastInputTime = millis();
 }
 
 function draw() {
@@ -23,8 +30,28 @@ function draw() {
     let centerX = width / 2;
     let centerY = height / 2;
     
+    // 줌 레벨 부드럽게 전환
+    zoomLevel = lerp(zoomLevel, targetZoom, 0.05);
+    
+    // 한 바퀴 완료 후 5초간 입력 없으면 새 원 생성
+    if (hasCompletedRotation && !isWaitingForZoom) {
+        if (millis() - lastInputTime > 5000) {
+            isWaitingForZoom = true;
+            // 잠깐 멈춤
+            setTimeout(() => {
+                addNewCircleWithZoom();
+                isWaitingForZoom = false;
+                hasCompletedRotation = false;
+            }, 500);
+        }
+    }
+    
     // 스페이스바 눌렸을 때 속도 2배
-    rotationSpeed = isSpacePressed ? baseSpeed * 2 : baseSpeed;
+    if (!isWaitingForZoom) {
+        rotationSpeed = isSpacePressed ? baseSpeed * 2 : baseSpeed;
+    } else {
+        rotationSpeed = 0; // 줌아웃 중에는 회전 멈춤
+    }
     
     // 회전 각도 업데이트
     previousAngle = angle;
@@ -35,9 +62,15 @@ function draw() {
     let currRotations = Math.floor(angle / TWO_PI);
     
     if (currRotations > prevRotations) {
-        // 한 바퀴 완료 - 새 원 추가
-        addNewCircle();
+        hasCompletedRotation = true;
+        lastInputTime = millis();
     }
+    
+    // 줌 적용
+    push();
+    translate(centerX, centerY);
+    scale(zoomLevel);
+    translate(-centerX, -centerY);
     
     // 모든 원 그리기 (현재 레벨까지)
     push();
@@ -47,16 +80,16 @@ function draw() {
     for (let i = 0; i <= currentCircleLevel; i++) {
         let radius = baseRadius + (i * radiusIncrement);
         circle(centerX, centerY, radius * 2);
+        
+        // 각 원마다 12시 방향 눈금 (바깥쪽)
+        push();
+        stroke(200, 200, 200);
+        strokeWeight(2);
+        let tickLength = 10;
+        line(centerX, centerY - radius - tickLength, 
+             centerX, centerY - radius - tickLength * 2);
+        pop();
     }
-    pop();
-    
-    // 12시 방향 눈금 표시
-    push();
-    stroke(200, 200, 200);
-    strokeWeight(3);
-    let tickLength = 15;
-    line(centerX, centerY - baseRadius + tickLength, 
-         centerX, centerY - baseRadius - tickLength);
     pop();
     
     // 모든 글자 그리기
@@ -97,6 +130,19 @@ function draw() {
     
     pop();
     
+    // 파티클 업데이트 및 그리기 (줌 바깥에서)
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.update();
+        p.display();
+        
+        if (p.isDead()) {
+            particles.splice(i, 1);
+        }
+    }
+    
+    pop(); // 줌 pop
+    
     // Instructions
     push();
     fill(150);
@@ -128,12 +174,17 @@ function keyPressed() {
     
     // 일반 글자 입력 (스페이스 제외)
     if (key.length === 1 && keyCode !== 32) {
+        lastInputTime = millis(); // 입력 시간 갱신
+        
         // 새 글자는 현재 활성화된 원(맨 바깥쪽)에 추가
         letters.push({
             char: key,
             startAngle: -PI / 2 - angle,
             circleLevel: currentCircleLevel // 현재 원 레벨에 고정
         });
+        
+        // 파티클 효과 생성 (12시 방향)
+        createParticles();
     }
     
     return false; // 기본 동작 방지
@@ -154,27 +205,73 @@ function mouseWheel(event) {
     previousAngle = angle;
     angle += scrollAmount;
     
-    // 한 바퀴(2π) 회전 감지 (스크롤로도)
-    let prevRotations = Math.floor(previousAngle / TWO_PI);
-    let currRotations = Math.floor(angle / TWO_PI);
-    
-    if (currRotations > prevRotations) {
-        // 한 바퀴 완료 - 새 원 추가
-        addNewCircle();
-    }
-    
     return false; // 기본 스크롤 동작 방지
 }
 
-// 새 원 추가 함수 (수동으로 호출)
+// 새 원 추가 함수
 function addNewCircle() {
     currentCircleLevel++;
+}
+
+// 줌아웃과 함께 새 원 추가
+function addNewCircleWithZoom() {
+    currentCircleLevel++;
+    // 줌아웃 효과
+    let newMaxRadius = baseRadius + (currentCircleLevel * radiusIncrement);
+    targetZoom = (height * 0.8) / (newMaxRadius * 2);
+}
+
+// 파티클 생성
+function createParticles() {
+    let centerX = width / 2;
+    let centerY = height / 2;
+    let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
+    
+    // 12시 방향 위치 (줌 고려)
+    let particleX = centerX;
+    let particleY = centerY - currentRadius * zoomLevel;
+    
+    // 여러 파티클 생성
+    for (let i = 0; i < 10; i++) {
+        particles.push(new Particle(particleX, particleY));
+    }
+}
+
+// 파티클 클래스
+class Particle {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = random(-3, 3);
+        this.vy = random(-5, -2);
+        this.alpha = 255;
+        this.size = random(3, 8);
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.2; // 중력
+        this.alpha -= 5;
+    }
+    
+    display() {
+        push();
+        noStroke();
+        fill(255, 255, 255, this.alpha);
+        circle(this.x, this.y, this.size);
+        pop();
+    }
+    
+    isDead() {
+        return this.alpha <= 0;
+    }
 }
 
 // 키보드로 새 원 추가 (예: Enter 키)
 function keyTyped() {
     if (key === '\n' || key === '\r') { // Enter 키
-        addNewCircle();
+        addNewCircleWithZoom();
     }
     return false;
 }

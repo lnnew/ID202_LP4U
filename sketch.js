@@ -173,14 +173,6 @@ function draw() {
     textSize(16);
     text('Press any key to add letters | Hold SPACE for 2x speed | Scroll to rewind/forward', width / 2, height - 50);
     pop();
-    
-    // Credit
-    push();
-    fill(150);
-    textSize(14);
-    textAlign(RIGHT, BOTTOM);
-    text('Jihyun', width - 30, height - 30);
-    pop();
 }
 
 function keyPressed() {

@@ -121,7 +121,7 @@ function draw() {
     }
     pop();
     
-    // 원 위의 흔적(traces) 그리기
+    // 원 위의 흔적(traces) 그리기 - 글자보다 먼저
     push();
     translate(centerX, centerY);
     rotate(angle); // 원과 함께 회전
@@ -278,8 +278,8 @@ function keyReleased() {
         return false;
     }
     
-    // 일반 글자 키를 뗐을 때 - 흔적 저장
-    if (key.length === 1 && keyCode !== 32 && currentTrace) {
+    // 현재 흔적이 있으면 저장 (어떤 키든 상관없이)
+    if (currentTrace) {
         // 흔적 배열에 저장
         traces.push({
             startAngle: currentTrace.startAngle,

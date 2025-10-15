@@ -233,6 +233,12 @@ function mouseWheel(event) {
     previousAngle = angle;
     angle += scrollAmount;
     
+    // 뒤로 감기(rewind) 감지 - 파티클 효과
+    if (scrollAmount < 0) {
+        // 뒤로 감는 중 - 파티클 생성
+        createRewindParticles();
+    }
+    
     // 한 바퀴(2π) 회전 감지 (스크롤로도)
     let prevRotations = Math.floor(previousAngle / TWO_PI);
     let currRotations = Math.floor(angle / TWO_PI);
@@ -285,6 +291,28 @@ function createParticles() {
     }
 }
 
+// Rewind 파티클 생성 (바깥쪽으로)
+function createRewindParticles() {
+    let centerX = width / 2;
+    let centerY = height / 2;
+    let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
+    
+    // 현재 회전 각도에서 12시 방향
+    let angle12 = -PI / 2 + angle;
+    
+    // 줌을 고려한 반지름
+    let zoomedRadius = currentRadius * zoomLevel;
+    
+    // 12시 방향 위치
+    let particleX = centerX + cos(angle12) * zoomedRadius;
+    let particleY = centerY + sin(angle12) * zoomedRadius;
+    
+    // 바깥쪽으로 튀는 파티클 (적은 개수)
+    for (let i = 0; i < 3; i++) {
+        particles.push(new RewindParticle(particleX, particleY, angle12));
+    }
+}
+
 // 파티클 클래스
 class Particle {
     constructor(x, y) {
@@ -318,6 +346,41 @@ class Particle {
     
     isDead() {
         return this.alpha <= 0 || this.life > 25; // 최대 생명 제한
+    }
+}
+
+// Rewind 파티클 클래스 (바깥쪽으로 튐)
+class RewindParticle {
+    constructor(x, y, direction) {
+        this.x = x;
+        this.y = y;
+        // 바깥쪽 방향으로 튐
+        let speed = random(2, 4);
+        this.vx = cos(direction) * speed;
+        this.vy = sin(direction) * speed;
+        this.alpha = 200;
+        this.size = random(2, 4);
+        this.life = 0;
+    }
+    
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        // 약간의 감속
+        this.vx *= 0.95;
+        this.vy *= 0.95;
+        this.alpha -= 8;
+        this.life++;
+    }
+    
+    display() {
+        noStroke();
+        fill(150, 200, 255, this.alpha); // 파란색 톤
+        circle(this.x, this.y, this.size);
+    }
+    
+    isDead() {
+        return this.alpha <= 0 || this.life > 30;
     }
 }
 

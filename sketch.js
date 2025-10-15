@@ -297,13 +297,13 @@ function createRewindParticles() {
     let centerY = height / 2;
     let currentRadius = baseRadius + (currentCircleLevel * radiusIncrement);
     
-    // 현재 회전 각도에서 12시 방향
-    let angle12 = -PI / 2 + angle;
+    // 고정된 12시 방향 (회전 각도와 무관하게)
+    let angle12 = -PI / 2;
     
     // 줌을 고려한 반지름
     let zoomedRadius = currentRadius * zoomLevel;
     
-    // 12시 방향 위치
+    // 12시 방향 위치 (항상 눈금 근처)
     let particleX = centerX + cos(angle12) * zoomedRadius;
     let particleY = centerY + sin(angle12) * zoomedRadius;
     

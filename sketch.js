@@ -420,7 +420,7 @@ function keyTyped() {
     if (key === '\n' || key === '\r') { // Enter 키
         // 회전 완료 상태로 설정하여 블러 효과 즉시 시작
         hasCompletedRotation = true;
-        lastInputTime = millis() - 3000; // 3초가 지난 것처럼 설정하여 블러 바로 시작
+        lastInputTime = 0; // 블러가 바로 시작되도록 설정
     }
     return false;
 }

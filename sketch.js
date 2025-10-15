@@ -1,6 +1,8 @@
 let letters = [];
 let angle = 0;
 let rotationSpeed = 0.005; // 느린 회전 속도
+let baseRadius = 200; // 첫 번째 원의 반지름
+let radiusIncrement = 60; // 각 원 사이의 간격
 
 function setup() {
     createCanvas(800, 800);
@@ -16,18 +18,26 @@ function draw() {
     let centerX = width / 2;
     let centerY = height / 2;
     
-    // 원의 반지름
-    let radius = 250;
-    
     // 회전 각도 업데이트
     angle += rotationSpeed;
     
-    // 중심 원 그리기 (가이드)
+    // 필요한 원의 개수 계산 (첫 글자가 몇 바퀴 돌았는지)
+    let maxCircles = 1;
+    if (letters.length > 0) {
+        let firstLetter = letters[0];
+        let totalRotation = firstLetter.startAngle + angle + PI / 2; // 12시 기준으로 계산
+        maxCircles = Math.max(1, Math.floor(Math.abs(totalRotation) / (TWO_PI)) + 1);
+    }
+    
+    // 중심 원들 그리기 (가이드)
     push();
     noFill();
     stroke(80, 80, 80);
     strokeWeight(1);
-    circle(centerX, centerY, radius * 2);
+    for (let i = 0; i < maxCircles; i++) {
+        let radius = baseRadius + (i * radiusIncrement);
+        circle(centerX, centerY, radius * 2);
+    }
     pop();
     
     // 모든 글자 그리기
@@ -40,12 +50,18 @@ function draw() {
         push();
         
         // 각 글자의 현재 각도 = 입력 시점 각도 + 전체 회전
-        // 새 글자는 항상 12시(-PI/2)에서 시작하고, 시간이 지나면서 회전
         let letterAngle = letter.startAngle + angle;
         
+        // 글자가 몇 바퀴 돌았는지 계산 (12시 기준)
+        let totalRotation = letterAngle + PI / 2; // 12시가 0이 되도록
+        let circleLevel = Math.floor(Math.abs(totalRotation) / TWO_PI);
+        
+        // 현재 원의 반지름 계산
+        let currentRadius = baseRadius + (circleLevel * radiusIncrement);
+        
         // 글자 위치 계산
-        let x = cos(letterAngle) * radius;
-        let y = sin(letterAngle) * radius;
+        let x = cos(letterAngle) * currentRadius;
+        let y = sin(letterAngle) * currentRadius;
         
         translate(x, y);
         

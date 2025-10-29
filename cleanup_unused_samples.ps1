@@ -21,20 +21,20 @@ foreach ($inst in $instruments.Keys) {
     # Get all files in instrument folder
     $allFiles = Get-ChildItem -Path $instPath -File
     $removedCount = 0
-    
+
     foreach ($file in $allFiles) {
+        $ext = [System.IO.Path]::GetExtension($file.Name).ToLower()
         $baseName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
-        
-        # Check if this note should be kept
-        $shouldKeep = $false
-        foreach ($note in $keepNotes) {
-            if ($baseName -eq $note) {
-                $shouldKeep = $true
-                break
-            }
+
+        # Remove non-.ogg files immediately
+        if ($ext -ne ".ogg") {
+            Remove-Item -Path $file.FullName -Force
+            $removedCount++
+            continue
         }
-        
-        if (-Not $shouldKeep) {
+
+        # If .ogg, check if basename is in keep list
+        if ($keepNotes -notcontains $baseName) {
             Remove-Item -Path $file.FullName -Force
             $removedCount++
         }

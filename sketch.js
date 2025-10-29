@@ -78,42 +78,42 @@ function setupAudio() {
     
     // 필요한 음계만 정의 (C Major scale)
     const bassNotes = {
-        'C1': './samples/bass-electric/C1.mp3',
-        'D1': './samples/bass-electric/D1.mp3',
-        'E1': './samples/bass-electric/E1.mp3',
-        'F1': './samples/bass-electric/F1.mp3',
-        'G1': './samples/bass-electric/G1.mp3',
-        'A1': './samples/bass-electric/A1.mp3',
-        'B1': './samples/bass-electric/B1.mp3',
-        'C2': './samples/bass-electric/C2.mp3',
-        'D2': './samples/bass-electric/D2.mp3',
-        'E2': './samples/bass-electric/E2.mp3'
+        'C1': './samples/bass-electric/C1.ogg',
+        'D1': './samples/bass-electric/D1.ogg',
+        'E1': './samples/bass-electric/E1.ogg',
+        'F1': './samples/bass-electric/F1.ogg',
+        'G1': './samples/bass-electric/G1.ogg',
+        'A1': './samples/bass-electric/A1.ogg',
+        'B1': './samples/bass-electric/B1.ogg',
+        'C2': './samples/bass-electric/C2.ogg',
+        'D2': './samples/bass-electric/D2.ogg',
+        'E2': './samples/bass-electric/E2.ogg'
     };
     
     const pianoNotes = {
-        'C4': './samples/piano/C4.mp3',
-        'D4': './samples/piano/D4.mp3',
-        'E4': './samples/piano/E4.mp3',
-        'F4': './samples/piano/F4.mp3',
-        'G4': './samples/piano/G4.mp3',
-        'A4': './samples/piano/A4.mp3',
-        'B4': './samples/piano/B4.mp3',
-        'C5': './samples/piano/C5.mp3',
-        'D5': './samples/piano/D5.mp3',
-        'E5': './samples/piano/E5.mp3'
+        'C4': './samples/piano/C4.ogg',
+        'D4': './samples/piano/D4.ogg',
+        'E4': './samples/piano/E4.ogg',
+        'F4': './samples/piano/F4.ogg',
+        'G4': './samples/piano/G4.ogg',
+        'A4': './samples/piano/A4.ogg',
+        'B4': './samples/piano/B4.ogg',
+        'C5': './samples/piano/C5.ogg',
+        'D5': './samples/piano/D5.ogg',
+        'E5': './samples/piano/E5.ogg'
     };
     
     const violinNotes = {
-        'C5': './samples/violin/C5.mp3',
-        'D5': './samples/violin/D5.mp3',
-        'E5': './samples/violin/E5.mp3',
-        'F5': './samples/violin/F5.mp3',
-        'G5': './samples/violin/G5.mp3',
-        'A5': './samples/violin/A5.mp3',
-        'B5': './samples/violin/B5.mp3',
-        'C6': './samples/violin/C6.mp3',
-        'D6': './samples/violin/D6.mp3',
-        'E6': './samples/violin/E6.mp3'
+        'C5': './samples/violin/C5.ogg',
+        'D5': './samples/violin/D5.ogg',
+        'E5': './samples/violin/E5.ogg',
+        'F5': './samples/violin/F5.ogg',
+        'G5': './samples/violin/G5.ogg',
+        'A5': './samples/violin/A5.ogg',
+        'B5': './samples/violin/B5.ogg',
+        'C6': './samples/violin/C6.ogg',
+        'D6': './samples/violin/D6.ogg',
+        'E6': './samples/violin/E6.ogg'
     };
     
     let loadedCount = 0;

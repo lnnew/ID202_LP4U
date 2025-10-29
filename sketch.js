@@ -28,6 +28,32 @@ let bgColors = [
     [26, 50, 50], // 시안
 ];
 
+// 오디오 관련 변수
+let instruments = {};
+let instrumentsLoaded = false;
+// 전역 오류 로깅 (디버깅 도움)
+window.addEventListener('error', function(e) {
+    console.error('Global error:', e.message || e);
+    let text = document.getElementById('loading-text');
+    if (text) text.textContent = 'Error: ' + (e.message || 'See console');
+});
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    let text = document.getElementById('loading-text');
+    if (text) text.textContent = 'Error: see console';
+});
+let keyMappings = {
+    0: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], // 드럼
+    1: ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], // 베이스
+    2: ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'], // 피아노
+    3: ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']  // 바이올린
+};
+// C Major scale notes
+let majorScale = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E'];
+let drumSounds = ['C2', 'D2', 'E2', 'F2', 'G2', 'A2', 'B2', 'C3', 'D3', 'E3']; // 드럼용
+let isAudioStarted = false;
+let lastPlayedAngles = []; // 각 글자가 마지막으로 재생된 각도 추적
+
 function setup() {
     createCanvas(windowWidth, windowHeight);
     textAlign(CENTER, CENTER);
@@ -38,6 +64,145 @@ function setup() {
     // 성능 최적화
     frameRate(60); // 프레임레이트 제한
     pixelDensity(1); // 레티나 디스플레이 픽셀 밀도 제한
+    
+    // 오디오 초기화 (사용자 인터랙션 후)
+    setupAudio();
+}
+
+function setupAudio() {
+    console.log('setupAudio called - loading only required samples...');
+    
+    // Circle 0: 드럼 (MembraneSynth - 라이브러리에 드럼킷 없음)
+    instruments[0] = new Tone.MembraneSynth().toDestination();
+    console.log('Drum synth ready');
+    
+    // 필요한 음계만 정의 (C Major scale)
+    const bassNotes = {
+        'C1': './samples/bass-electric/C1.mp3',
+        'D1': './samples/bass-electric/D1.mp3',
+        'E1': './samples/bass-electric/E1.mp3',
+        'F1': './samples/bass-electric/F1.mp3',
+        'G1': './samples/bass-electric/G1.mp3',
+        'A1': './samples/bass-electric/A1.mp3',
+        'B1': './samples/bass-electric/B1.mp3',
+        'C2': './samples/bass-electric/C2.mp3',
+        'D2': './samples/bass-electric/D2.mp3',
+        'E2': './samples/bass-electric/E2.mp3'
+    };
+    
+    const pianoNotes = {
+        'C4': './samples/piano/C4.mp3',
+        'D4': './samples/piano/D4.mp3',
+        'E4': './samples/piano/E4.mp3',
+        'F4': './samples/piano/F4.mp3',
+        'G4': './samples/piano/G4.mp3',
+        'A4': './samples/piano/A4.mp3',
+        'B4': './samples/piano/B4.mp3',
+        'C5': './samples/piano/C5.mp3',
+        'D5': './samples/piano/D5.mp3',
+        'E5': './samples/piano/E5.mp3'
+    };
+    
+    const violinNotes = {
+        'C5': './samples/violin/C5.mp3',
+        'D5': './samples/violin/D5.mp3',
+        'E5': './samples/violin/E5.mp3',
+        'F5': './samples/violin/F5.mp3',
+        'G5': './samples/violin/G5.mp3',
+        'A5': './samples/violin/A5.mp3',
+        'B5': './samples/violin/B5.mp3',
+        'C6': './samples/violin/C6.mp3',
+        'D6': './samples/violin/D6.mp3',
+        'E6': './samples/violin/E6.mp3'
+    };
+    
+    let loadedCount = 0;
+    const totalInstruments = 3;
+    
+    function updateLoadProgress() {
+        loadedCount++;
+        let progress = loadedCount / totalInstruments;
+        let pct = Math.round(progress * 100);
+        
+        let bar = document.getElementById('loading-bar');
+        let text = document.getElementById('loading-text');
+        if (bar) bar.style.width = pct + '%';
+        if (text) text.textContent = 'Loading... ' + pct + '%';
+        console.log('Loading progress: ' + pct + '%');
+        
+        if (loadedCount === totalInstruments) {
+            console.log('All instruments loaded successfully!');
+            instrumentsLoaded = true;
+            
+            let overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.style.display = 'none';
+            if (text) text.textContent = 'Ready!';
+        }
+    }
+    
+    // 비동기 샘플 확인 및 로드: 각 파일이 실제로 존재하는지 확인하고 존재하는 파일만 로드합니다.
+    async function checkUrlExists(url) {
+        try {
+            let res = await fetch(url, { method: 'HEAD' });
+            return res.ok;
+        } catch (e) {
+            // 일부 서버/환경에서 HEAD를 허용하지 않을 수 있으므로 GET으로 폴백
+            try {
+                let r2 = await fetch(url, { method: 'GET' });
+                return r2.ok;
+            } catch (e2) {
+                return false;
+            }
+        }
+    }
+
+    async function loadSamplerFor(name, notesObj, index, release) {
+        let available = {};
+        for (let note in notesObj) {
+            let url = notesObj[note];
+            let ok = await checkUrlExists(url);
+            if (ok) {
+                available[note] = url;
+            } else {
+                console.warn('Missing sample for', name, note, url);
+            }
+        }
+
+        if (Object.keys(available).length === 0) {
+            console.warn('No samples available for', name, '- skipping sampler and marking loaded');
+            updateLoadProgress();
+            return;
+        }
+
+        instruments[index] = new Tone.Sampler({
+            urls: available,
+            release: release,
+            onload: function() {
+                console.log(name + ' loaded with ' + Object.keys(available).length + ' samples');
+                updateLoadProgress();
+            }
+        }).toDestination();
+    }
+
+    // 시작: 비동기 로더 호출
+    (async function() {
+        try {
+            await loadSamplerFor('Bass', bassNotes, 1, 0.5);
+            await loadSamplerFor('Piano', pianoNotes, 2, 1);
+            await loadSamplerFor('Violin', violinNotes, 3, 0.8);
+        } catch (err) {
+            console.error('Error while loading samplers:', err);
+        }
+    })();
+    
+    // 타임아웃 (30초)
+    setTimeout(function() {
+        if (!instrumentsLoaded) {
+            console.error('Sample loading timed out');
+            let text = document.getElementById('loading-text');
+            if (text) text.textContent = 'Loading timeout - check console';
+        }
+    }, 30000);
 }
 
 function draw() {
@@ -169,6 +334,9 @@ function draw() {
 
         // 각 글자의 현재 각도 = 입력 시점 각도 + 전체 회전
         let letterAngle = letter.startAngle + angle;
+        
+        // 12시 방향 통과 감지 및 사운드 재생
+        checkAndPlayLetterSound(letter, letterAngle, i);
 
         // 글자가 속한 원의 레벨 (입력 시점에 고정됨)
         let circleLevel = letter.circleLevel;
@@ -237,11 +405,22 @@ function draw() {
     push();
     fill(150);
     textSize(16);
-    text('Key: add letter | SPACE: 2x speed | →: next circle | ←: prev circle | Scroll: rewind', width / 2, height - 50);
+    if (!instrumentsLoaded) {
+        text('Loading instruments...', width / 2, height - 50);
+    } else {
+        text('Key: add letter | SPACE: 2x speed | →: next circle | ←: prev circle | Scroll: rewind', width / 2, height - 50);
+    }
     pop();
 }
 
 function keyPressed() {
+    // Tone.js 오디오 컨텍스트 시작 (첫 키 입력 시)
+    if (!isAudioStarted) {
+        Tone.start();
+        isAudioStarted = true;
+        console.log('Audio started');
+    }
+    
     // 스페이스바 눌림 감지
     if (keyCode === 32) { // 스페이스바
         isSpacePressed = true;
@@ -272,6 +451,12 @@ function keyPressed() {
     
     // 일반 글자 입력 (스페이스 제외) - 눌린 시간 기록
     if (key.length === 1 && keyCode !== 32) {
+        // 현재 circle의 키 매핑 확인
+        let circleKeys = keyMappings[currentCircleLevel];
+        if (!circleKeys || !circleKeys.includes(key)) {
+            return false; // 현재 circle에 매핑되지 않은 키는 무시
+        }
+        
         // 흐림 중에 다른 키 누르면 취소
         if (hasCompletedRotation || isWaitingForZoom) {
             hasCompletedRotation = false;
@@ -283,6 +468,7 @@ function keyPressed() {
         
         // 즉시 레터 생성하고 held 상태로 표시
         let pressTime = millis();
+        let keyIndex = circleKeys.indexOf(key);
         let newLetter = {
             char: key,
             startAngle: -PI / 2 - angle,
@@ -290,10 +476,16 @@ function keyPressed() {
             opacity: 255, // start sharp
             size: 24, // start larger
             isHeld: true,
-            holdStart: pressTime
+            holdStart: pressTime,
+            keyIndex: keyIndex, // 음계 매핑용
+            lastPlayedRotation: -1 // 회전 재생 추적
         };
         letters.push(newLetter);
         keyPressStartTime[key] = pressTime;
+        
+        // 사운드 재생
+        playSound(currentCircleLevel, keyIndex, 0.5); // 초기 볼륨
+        
         // 파티클 바로 생성
         createParticles();
     }
@@ -337,6 +529,12 @@ function keyReleased() {
                     letters[i].size = finalSize;
                     letters[i].isHeld = false;
                     delete letters[i].holdStart;
+                    
+                    // 최종 볼륨으로 다시 재생
+                    let finalVolume = map(pressDuration, 0, 2000, 0.5, 1.0);
+                    finalVolume = constrain(finalVolume, 0.5, 1.0);
+                    playSound(letters[i].circleLevel, letters[i].keyIndex, finalVolume);
+                    
                     break;
                 }
             }
@@ -524,4 +722,62 @@ function keyTyped() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
+}
+
+// 사운드 재생 함수
+function playSound(circleLevel, keyIndex, volume = 0.5) {
+    if (!instruments[circleLevel]) return;
+    
+    let note;
+    let duration = "8n"; // 8분음표 기본
+    
+    if (circleLevel === 0) {
+        // 드럼 - 각기 다른 드럼 소리 (MembraneSynth)
+        note = drumSounds[keyIndex % drumSounds.length];
+        instruments[0].triggerAttackRelease(note, "8n", undefined, volume);
+    } else if (circleLevel === 1) {
+        // 베이스 - 낮은 옥타브 (C1-E2)
+        let octave = 1;
+        note = majorScale[keyIndex % majorScale.length] + octave;
+        instruments[1].triggerAttackRelease(note, "4n", undefined, volume);
+    } else if (circleLevel === 2) {
+        // 피아노 - 중간 옥타브 (C4-E5)
+        let octave = 4;
+        note = majorScale[keyIndex % majorScale.length] + octave;
+        instruments[2].triggerAttackRelease(note, "8n", undefined, volume);
+    } else if (circleLevel === 3) {
+        // 바이올린 - 높은 옥타브 (C5-E6)
+        let octave = 5;
+        note = majorScale[keyIndex % majorScale.length] + octave;
+        instruments[3].triggerAttackRelease(note, "4n", undefined, volume);
+    }
+}
+
+// 12시 방향 통과 시 사운드 재생
+function checkAndPlayLetterSound(letter, letterAngle, letterIndex) {
+    // 각도를 0-2π 범위로 정규화
+    let normalizedAngle = (letterAngle % TWO_PI + TWO_PI) % TWO_PI;
+    
+    // 12시 방향은 -PI/2를 기준으로 하므로, 이를 0-2π 범위로 변환
+    // -PI/2 -> 3PI/2
+    let targetAngle = 3 * PI / 2;
+    
+    // 현재 회전 수 계산
+    let currentRotation = Math.floor(angle / TWO_PI);
+    
+    // 12시 방향 근처 통과 감지 (작은 범위)
+    let threshold = 0.05; // 약 3도
+    let isNear12 = Math.abs(normalizedAngle - targetAngle) < threshold || 
+                   Math.abs(normalizedAngle - targetAngle) > (TWO_PI - threshold);
+    
+    // 이번 회전에서 아직 재생 안됐으면 재생
+    if (isNear12 && letter.lastPlayedRotation !== currentRotation && !letter.isHeld) {
+        letter.lastPlayedRotation = currentRotation;
+        
+        // 볼륨은 글자 크기에 비례
+        let volume = map(letter.size, 24, 48, 0.3, 0.8);
+        volume = constrain(volume, 0.3, 0.8);
+        
+        playSound(letter.circleLevel, letter.keyIndex, volume);
+    }
 }

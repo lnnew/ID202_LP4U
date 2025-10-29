@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:;">
     <title>LP4U</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/nbrosowsky/tonejs-instruments@master/Tonejs-Instruments.js"></script>
     <style>
         body {
             margin: 0;
-            
+
             padding: 0;
             display: flex;
             justify-content: center;
@@ -34,6 +37,15 @@
     </style>
 </head>
 <body>
+    <!-- Loading overlay shown while instrument samples download -->
+    <div id="loading-overlay" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,10,10,0.9);color:#fff;font-family:Arial,Helvetica,sans-serif;z-index:2000;">
+        <div style="text-align:center;">
+            <div id="loading-text" style="font-size:20px;margin-bottom:8px;">Loading instruments...</div>
+            <div id="loading-progress" style="width:260px;height:8px;background:#333;border-radius:4px;overflow:hidden;margin:0 auto;">
+                <div id="loading-bar" style="width:0%;height:100%;background:#6cf;"></div>
+            </div>
+        </div>
+    </div>
     <main></main>
     <div class="credit">Jihyun</div>
     <script src="sketch.js"></script>

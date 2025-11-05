@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:;">
+    <!-- Inter font for watermark and UI text -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <title>LP4U</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
@@ -34,6 +36,180 @@
             font-size: 14px;
             z-index: 1000;
         }
+        
+        /* 다운로드 버튼 스타일 - 심플, 하단 중앙 */
+        #download-button {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.06);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 10px 18px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            box-shadow: none;
+            transition: all 0.12s ease;
+            z-index: 1000;
+        }
+    #download-button { text-decoration: underline; }
+    #download-button:hover { transform: translateX(-50%) translateY(-2px); }
+        
+        /* 다운로드 설정 팝업 */
+        #config-popup {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.35); /* lighter backdrop so LP remains visible */
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            animation: fadeIn 0.18s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .config-panel {
+            background: #1f1f1f;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 460px;
+            width: 92%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        .config-panel h2 {
+            margin: 0 0 18px 0;
+            font-size: 20px;
+            text-align: left;
+            color: #fff;
+        }
+        
+        .config-section {
+            margin-bottom: 25px;
+        }
+        
+        .config-section label {
+            display: block;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .config-section input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            background: #1a1a1a;
+            color: white;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+        
+        .config-section input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr); /* 한 줄에 8개 */
+            gap: 4px; /* 더 촘촘하게 */
+            justify-items: center; /* 각 칸의 내용 중앙 정렬 */
+        }
+        
+        .color-option {
+            width: 50%; /* 각 그리드 칸 너비의 절반 */
+            aspect-ratio: 1;
+            border-radius: 6px; /* 더 작고 심플하게 */
+            border: 2px solid transparent; /* 얇게 */
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+            margin: 0 auto; /* 칸 내부 중앙 정렬 */
+        }
+        
+        .color-option:hover { transform: scale(1.03); }
+        
+        .color-option.selected {
+            border-color: white;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+        
+        .ratio-buttons {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .ratio-btn {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #444;
+            border-radius: 10px;
+            background: #1a1a1a;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+        
+        .ratio-btn:hover {
+            border-color: #667eea;
+        }
+        
+        .ratio-btn.selected {
+            background: rgba(255,255,255,0.06);
+            border-color: rgba(255,255,255,0.08);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .action-buttons button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: Arial, sans-serif;
+        }
+        
+        .btn-cancel {
+            background: transparent;
+            color: #d9d9d9;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .btn-cancel:hover { background: rgba(255,255,255,0.04); }
+        
+        .btn-start {
+            background: transparent; /* 채우기 없음 */
+            color: #ddd;
+            border: 1px solid rgba(255,255,255,0.12); /* 옅은 회색 테두리 */
+        }
+        .btn-start:hover { background: rgba(255,255,255,0.02); }
     </style>
 </head>
 <body>
@@ -47,6 +223,59 @@
         </div>
     </div>
     <main></main>
+    
+    <!-- 다운로드 텍스트 (버튼 스타일 아님) -->
+    <a id="download-button" href="#" role="button" aria-label="Save LP" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);color:#bdbdbd;z-index:1000;text-decoration:underline;">Save LP</a>
+    
+    <!-- 설정 팝업 -->
+    <div id="config-popup">
+        <div class="config-panel">
+            <h2>Save Your LP</h2>
+            
+            <!-- LP 이름 입력 -->
+            <div class="config-section">
+                <label>LP Title (Center)</label>
+                <input type="text" id="lp-title" placeholder="Enter LP name..." maxlength="50">
+            </div>
+            
+            <!-- 배경색 선택 -->
+            <div class="config-section">
+                <label>Background Color</label>
+                <div class="color-grid">
+                    <div class="color-option selected" data-color="0" style="background: rgb(26, 26, 26);" title="Dark Gray"></div>
+                    <div class="color-option" data-color="1" style="background: rgb(50, 26, 26);" title="Dark Red"></div>
+                    <div class="color-option" data-color="2" style="background: rgb(26, 50, 26);" title="Dark Green"></div>
+                    <div class="color-option" data-color="3" style="background: rgb(26, 26, 50);" title="Dark Blue"></div>
+                    <div class="color-option" data-color="4" style="background: rgb(50, 50, 26);" title="Dark Yellow"></div>
+                    <div class="color-option" data-color="5" style="background: rgb(50, 26, 50);" title="Dark Magenta"></div>
+                    <div class="color-option" data-color="6" style="background: rgb(26, 50, 50);" title="Dark Cyan"></div>
+                    <div class="color-option" data-color="custom" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" title="Purple Gradient"></div>
+                </div>
+            </div>
+            
+            <!-- 비율 선택 -->
+            <div class="config-section">
+                <label>Video Format</label>
+                <div class="ratio-buttons">
+                    <div class="ratio-btn selected" data-ratio="square">
+                        <div>Square</div>
+                        <div style="font-size: 12px; color: #999;">1080 × 1080</div>
+                    </div>
+                    <div class="ratio-btn" data-ratio="mobile">
+                        <div>Mobile</div>
+                        <div style="font-size: 12px; color: #999;">1080 × 1920</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 액션 버튼 -->
+            <div class="action-buttons">
+                <button class="btn-cancel">Cancel</button>
+                <button class="btn-start">Start Recording</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="credit">Jihyun</div>
     <script src="sketch.js"></script>
 </body>

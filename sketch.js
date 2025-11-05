@@ -18,6 +18,42 @@ let blurAmount = 0; // 블러 강도
 let targetBlur = 0; // 목표 블러 강도
 let isRewinding = false; // 리와인드 중 여부
 let keyPressStartTime = {}; // 각 키의 눌린 시작 시간
+
+// 녹화 관련 변수
+let recorder;
+let isRecording = false;
+let recordingStartAngle = 0;
+let chunks = [];
+let canDownload = false; // 4바퀴 완료 후 다운로드 가능 여부
+let downloadButtonVisible = false; // 다운로드 버튼 표시 여부
+let recordingConfig = null; // 녹화 설정 (배경색, LP 이름, 비율)
+let uiOpen = false; // 설정 팝업 열림 상태
+let isDownloading = false; // 다운로드 중 플래그
+let selectedBgColor = null; // 즉시 적용할 배경색 (array rgb)
+
+function applySelectedBgColor(colorKey) {
+    try {
+        if (!colorKey) return;
+        if (colorKey === 'custom') {
+            selectedBgColor = [40, 30, 60];
+        } else {
+            const idx = parseInt(colorKey);
+            if (!isNaN(idx) && idx >= 0 && idx < bgColors.length) {
+                selectedBgColor = bgColors[idx];
+            }
+        }
+        if (selectedBgColor) {
+            // 바로 캔버스 + body에 적용
+            background(selectedBgColor[0], selectedBgColor[1], selectedBgColor[2]);
+            document.body.style.backgroundColor = `rgb(${selectedBgColor[0]}, ${selectedBgColor[1]}, ${selectedBgColor[2]})`;
+        }
+    } catch (e) {
+        // If called before p5 canvas exists, just update body
+        if (selectedBgColor) {
+            document.body.style.backgroundColor = `rgb(${selectedBgColor[0]}, ${selectedBgColor[1]}, ${selectedBgColor[2]})`;
+        }
+    }
+}
 let bgColors = [
     [26, 26, 26], // 기본 회색
     [50, 26, 26], // 빨강
@@ -59,11 +95,12 @@ window.addEventListener('unhandledrejection', function(e) {
     let text = document.getElementById('loading-text');
     if (text) text.textContent = 'Error: see console';
 });
+// Reverse mapping per user request: circle 0 should use z/x/c... and circle 3 use numbers
 let keyMappings = {
-    0: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'], // Lofi 코드 (chords)
-    1: ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'], // 드럼 (drums)
-    2: ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'], // 베이스 (bass)
-    3: ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/']  // 피아노 (piano)
+    0: ['z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/'],  // circle 0
+    1: ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';'],  // circle 1
+    2: ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],  // circle 2
+    3: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0']   // circle 3
 };
 // 사용자에게 표시할 악기 이름 (Circle 0..3)
 let instrumentNames = ['Chords', 'Drums', 'Bass', 'Piano'];
@@ -73,21 +110,29 @@ let labelShownAt = 0;
 const LABEL_DURATION = 3000; // ms
 // Asset 이미지 경로 (Circle 0..3 -> r1..r4)
 // Assumption: images are located at ./assets/r1.png etc. Change paths if your folder differs.
-let assetPaths = ['./assets/r1.png', './assets/r2.png', './assets/r3.png', './assets/r4.png'];
+// Reordered assets so circle 0 corresponds to the previous r4 and circle 3 to r1
+let assetPaths = ['./assets/r4.png', './assets/r3.png', './assets/r2.png', './assets/r1.png'];
 let assetImgs = []; // p5.Image objects (populated in preload)
 
 // Keyboard guide images (one per circle). Will be shown only once per circle.
-let guidePaths = ['./assets/guide0.png', './assets/guide1.png', './assets/guide2.png', './assets/guide3.png'];
+// Guide images reordered to match the reversed circle order
+let guidePaths = ['./assets/guide3.png', './assets/guide2.png', './assets/guide1.png', './assets/guide0.png'];
 let guideImgs = [];
 let guideShown = [false, false, false, false]; // whether we already showed the guide for each circle
 let guideTempVisible = false; // currently showing a guide (temporary)
 let guideTempShownAt = 0;
-const GUIDE_DURATION = 3000; // ms
+const GUIDE_DURATION = 5000; // ms (show guide PNG for 5s per user request)
+// Flags for startup guide behavior
+let guideStartupFlag = false; // set true in setup() so the first show is marked as startup
+let guideShownAtStartup = false; // true while startup guide is being shown
 
-// Start overlay for navigation arrows (shows once at start)
-let startOverlayVisible = true;
+// Start overlay for navigation arrows (time-based trigger after one normal revolution duration)
+let startOverlayVisible = false;
 let startOverlayShownAt = 0;
-const START_OVERLAY_DURATION = 3000; // ms
+let overlayTriggered = false; // ensure we show it once per app start
+let appStartMillis = 0; // capture setup() time
+let overlayDelayMs = 0; // computed from normal rotation duration
+const START_OVERLAY_DURATION = 5000; // ms visible duration once shown
 // C Major scale notes
 let majorScale = ['C', 'D', 'E', 'F', 'G', 'A', 'B', 'C', 'D', 'E'];
 // 드럼 샘플을 Sampler에 매핑할 노트 이름 10개
@@ -109,14 +154,35 @@ function setup() {
     
     // 오디오 초기화 (사용자 인터랙션 후)
     setupAudio();
+
+    // 다운로드/설정 UI 초기화 (CSP 대응: 모든 핸들러는 JS에서 등록)
+    initRecordingUI();
     // 시작 시 레이블 표시
     labelVisible = true;
     labelShownAt = millis();
-    // 시작 오버레이 표시 타임스탬프
-    startOverlayVisible = true;
-    startOverlayShownAt = millis();
+    // Start overlay timing setup: compute delay as one normal revolution time
+    appStartMillis = millis();
+    startOverlayVisible = false; // will appear after computed delay
+    startOverlayShownAt = 0;
+    overlayTriggered = false;
+    // Normal speed uses |baseSpeed| radians per frame; with target 60fps
+    // Duration (sec) for one revolution ≈ (2π) / (|baseSpeed| * 60)
+    const targetFps = 60;
+    const revSeconds = TWO_PI / (Math.abs(baseSpeed) * targetFps);
+    overlayDelayMs = Math.round(revSeconds * 1000);
     // 시작시 해당 circle의 가이드를 필요하면 표시
+    guideStartupFlag = true; // mark that the next guide shown is the startup guide
     showGuideForCurrentCircle();
+    // Compute an initial target zoom so the starting circle is sized appropriately
+    {
+        let newMaxRadius = baseRadius + (currentCircleLevel * radiusIncrement);
+    // Use the smaller screen dimension and a smaller fit factor
+    // to make the initial circle view noticeably smaller
+    const fitBase = Math.min(width, height);
+    targetZoom = Math.max(0.25, (fitBase * 0.80) / (newMaxRadius * 2));
+        // set zoomLevel immediately to avoid an initially tiny scale
+        zoomLevel = targetZoom;
+    }
 }
 
 // preload에서 에셋 이미지를 로드합니다. p5가 preload를 완료한 뒤 setup이 실행됩니다.
@@ -301,8 +367,25 @@ function setupAudio() {
 }
 
 function draw() {
+    // Trigger the start overlay after the computed normal-revolution delay (time-based)
+    if (!overlayTriggered && (millis() - appStartMillis) >= overlayDelayMs) {
+        startOverlayVisible = true;
+        startOverlayShownAt = millis();
+        overlayTriggered = true;
+    }
     // 포커스된 원에 따라 배경 색 변경
-    let bgColor = bgColors[currentCircleLevel % bgColors.length];
+    let bgColor;
+    
+    // 녹화 중이면 설정된 배경색 사용
+    if (isRecording && recordingConfig && recordingConfig.bgColor) {
+        bgColor = recordingConfig.bgColor;
+    } else if (selectedBgColor) {
+        // 사용자가 선택한 색을 우선 적용
+        bgColor = selectedBgColor;
+    } else {
+        bgColor = bgColors[currentCircleLevel % bgColors.length];
+    }
+    
     background(bgColor[0], bgColor[1], bgColor[2]);
     
     // body 배경도 함께 변경
@@ -329,6 +412,10 @@ function draw() {
     } else {
         rotationSpeed = 0; // 줌아웃 중에는 회전 멈춤
     }
+    // 다운로드 중이면 애니메이션 멈춤
+    if (isDownloading) {
+        rotationSpeed = 0;
+    }
     
     // 회전 각도 업데이트
     previousAngle = angle;
@@ -337,13 +424,11 @@ function draw() {
     // 한 바퀴(2π) 회전 감지 - 앞으로든 뒤로든
     let prevRotations = Math.floor(previousAngle / TWO_PI);
     let currRotations = Math.floor(angle / TWO_PI);
-    
+
     if (currRotations > prevRotations) {
-           // rotation completed — do NOT auto-advance anymore
-           // previously we used hasCompletedRotation to trigger an automatic
-           // addNewCircleWithZoom() after a timeout; that behavior is removed
-           // so we only update the last input timestamp.
-           lastInputTime = millis();
+        // rotation completed — update last input timestamp
+        lastInputTime = millis();
+        // No longer triggering overlay here; it is time-based now
     }
     
     // 줌 적용
@@ -439,6 +524,21 @@ function draw() {
         }
     }
     
+    // LP 타이틀 그리기 (녹화 중일 때만)
+    if (isRecording && recordingConfig && recordingConfig.lpTitle) {
+        push();
+        translate(centerX, centerY);
+        rotate(angle); // 회전과 함께 움직임
+        
+        textAlign(CENTER, CENTER);
+        textSize(36);
+        fill(255, 255, 255, 200);
+        noStroke();
+        text(recordingConfig.lpTitle, 0, 0);
+        
+        pop();
+    }
+    
     // 모든 글자 그리기
     push();
     translate(centerX, centerY);
@@ -465,21 +565,33 @@ function draw() {
         }
     }
     
-    // Circle 0 코드가 있으면 가장 마지막 글자만 코드 변경
-    if (circle0LettersAt12.length > 0) {
+    // Circle 0 (chords): trigger once when letters ENTER the 12 o'clock zone (entry-only, hysteresis)
+    // This re-enables chord playback at 12 o'clock without the previous rapid repeats.
+    let enteredAt12 = [];
+    for (let i = 0; i < letters.length; i++) {
+        const L = letters[i];
+        if (L.circleLevel !== 0) continue;
+        const letterAngle = L.startAngle + angle;
+        const norm = (letterAngle % TWO_PI + TWO_PI) % TWO_PI;
+        const target = 3 * PI / 2; // 12 o'clock
+        const th = 0.05; // ~3 degrees
+        const near = Math.abs(norm - target) < th || Math.abs(norm - target) > (TWO_PI - th);
+        const wasNear = !!L._near12;
+        if (near && !wasNear && !L.isHeld) {
+            enteredAt12.push(L);
+        }
+        L._near12 = near;
+    }
+    if (enteredAt12.length > 0) {
         stopCurrentChord();
-        let lastLetter = circle0LettersAt12[circle0LettersAt12.length - 1];
-        let volume = map(lastLetter.size, 24, 48, 0.3, 0.8);
-        volume = constrain(volume, 0.3, 0.8);
-        playSound(0, lastLetter.keyIndex, volume);
-        // trigger shake animation for the letter that caused the chord
-        lastLetter.shakeStart = millis();
-        lastLetter.shakeDuration = 400; // ms
-        lastLetter.shakeMagnitude = map(lastLetter.size || 32, 24, 48, 2, 8);
-        // 모든 circle 0 글자들의 lastPlayedAngleKey 업데이트
-        circle0LettersAt12.forEach(letter => {
-            letter.lastPlayedAngleKey = currentAngleKey;
-        });
+        const last = enteredAt12[enteredAt12.length - 1];
+        let vol = map(last.size, 24, 48, 0.3, 0.8);
+        vol = constrain(vol, 0.3, 0.8);
+        playSound(0, last.keyIndex, vol);
+        // subtle shake visual
+        last.shakeStart = millis();
+        last.shakeDuration = 400;
+        last.shakeMagnitude = map(last.size || 32, 24, 48, 2, 8);
     }
     
     for (let i = 0; i < letters.length; i++) {
@@ -579,23 +691,19 @@ function draw() {
     
     // 이전 하단 지시문 제거 — 현재 악기 라벨은 12시 방향에서 표시합니다.
 
-    // Start overlay ("<- -> to move between circles") shown only at startup
+    // Start overlay text: show a small instruction underneath the guide image
     if (startOverlayVisible) {
         let elapsed = millis() - startOverlayShownAt;
         if (elapsed >= START_OVERLAY_DURATION) {
             startOverlayVisible = false;
         } else {
             push();
-            rectMode(CENTER);
-            fill(0, 140);
-            noStroke();
-            let boxW = 420;
-            let boxH = 56;
-            rect(width/2, height/2 - 40, boxW, boxH, 8);
-            fill(255);
-            textSize(20);
             textAlign(CENTER, CENTER);
-            text('<- -> to move between circles', width/2, height/2 - 40);
+            textSize(14);
+            fill(210, 220);
+            // place instruction near the bottom area where guide image appears
+            let yPos = Math.min(height * 0.9, height * 0.82 + 48);
+            text('<-   ->   to move between circles', width/2, yPos);
             pop();
         }
     }
@@ -603,8 +711,12 @@ function draw() {
     // Temporary per-circle guide: shows once the first time a circle appears
     if (guideTempVisible) {
         let gElapsed = millis() - guideTempShownAt;
-        if (gElapsed >= GUIDE_DURATION) {
+        // If this was the startup guide, show 2s longer
+        let thisDuration = GUIDE_DURATION + (guideShownAtStartup ? 2000 : 0);
+        if (gElapsed >= thisDuration) {
             guideTempVisible = false;
+            // clear startup marker once finished
+            guideShownAtStartup = false;
         } else {
             let guideImg = guideImgs[currentCircleLevel];
             if (guideImg) {
@@ -621,9 +733,54 @@ function draw() {
             }
         }
     }
+    
+    // ===== 녹화 로직 =====
+    // Circle 3(네 번째 원) 도달 시 다운로드 버튼 표시
+    if (currentCircleLevel >= 3 && !canDownload && !isRecording) {
+        canDownload = true;
+        showDownloadButton();
+        console.log('✓ Circle 3 reached! Download button is now available.');
+    }
+    
+    // 녹화 진행 상황 체크 (한 바퀴 완료되면 자동 중지)
+    if (isRecording) {
+        checkRecordingProgress();
+    }
+
+    // 녹화 중 워터마크 표시 (영상 하단 중앙)
+    if (isRecording) {
+        push();
+        textAlign(CENTER, BOTTOM);
+        // 화면 크기에 따라 가변 폰트 크기
+        let base = Math.min(width, height);
+        let fontSize = Math.max(18, Math.floor(base * 0.03)); // 약 3% 크기, 최소 18px
+        // Use Inter font if available (we load it in index.html)
+        textFont('Inter');
+        textSize(fontSize);
+        // Draw slight shadow then the label (only 'LP4U')
+        noStroke();
+        fill(0, 180);
+        text('LP4U', width / 2, height - 28);
+        fill(255, 230);
+        text('LP4U', width / 2, height - 32);
+        pop();
+    }
 }
 
 function keyPressed() {
+    // If an input or textarea has focus, allow native typing (don't treat as instrument keys)
+    try {
+        const active = document && document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            return true; // allow default behavior so user can type LP title
+        }
+        // If the settings UI is open but focus is not inside an input, block instrument keys
+        if (uiOpen) {
+            return false;
+        }
+    } catch (e) {
+        // ignore DOM access errors
+    }
     // Tone.js 오디오 컨텍스트 시작 (첫 키 입력 시)
     if (!isAudioStarted) {
         Tone.start();
@@ -709,6 +866,16 @@ function keyPressed() {
 }
 
 function keyReleased() {
+    // 입력창 포커스 시 또는 UI 열림 시 악기키 동작 차단
+    try {
+        const active = document && document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            return true; // 텍스트 입력 유지
+        }
+        if (uiOpen) {
+            return false;
+        }
+    } catch (e) {}
     // 스페이스바 뗌 감지
     if (keyCode === 32) {
         isSpacePressed = false;
@@ -801,14 +968,19 @@ function showGuideForCurrentCircle() {
         guideShown[currentCircleLevel] = true;
         guideTempVisible = true;
         guideTempShownAt = millis();
+        // If this was triggered at startup, record that so we extend duration by 2s
+        if (guideStartupFlag) {
+            guideShownAtStartup = true;
+            guideStartupFlag = false;
+        }
     }
 }
 
 // 줌아웃과 함께 새 원 추가
 function addNewCircleWithZoom() {
-    // 최대 circle 3까지만 (0: 코드, 1: 드럼, 2: 베이스, 3: 피아노)
+    // 최대 circle 3까지 허용 (0: Chords, 1: Drums, 2: Bass, 3: Piano)
     if (currentCircleLevel >= 3) {
-        console.log('Maximum circle level reached (2)');
+        console.log('Maximum circle level reached (3)');
         return;
     }
     
@@ -950,6 +1122,16 @@ class RewindParticle {
 
 // 키보드로 블러 시작 (Enter 키) - 사용 안함
 function keyTyped() {
+    // 입력창 포커스 시 또는 UI 열림 시 기본 입력 허용
+    try {
+        const active = document && document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+            return true;
+        }
+        if (uiOpen) {
+            return false;
+        }
+    } catch (e) {}
     // Enter 키 기능 제거 (Right Arrow로 이동)
     // if (key === '\n' || key === '\r') { // Enter 키
     //     hasCompletedRotation = true;
@@ -960,6 +1142,12 @@ function keyTyped() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
+    // Recompute target zoom on resize so the current circle fits nicely
+    let newMaxRadius = baseRadius + (currentCircleLevel * radiusIncrement);
+    const fitBase = Math.min(width, height);
+    targetZoom = Math.max(0.25, (fitBase * 0.80) / (newMaxRadius * 2));
+    // Apply immediately to avoid transient tiny scale after resize
+    zoomLevel = targetZoom;
 }
 
 // 사운드 재생 함수
@@ -975,22 +1163,19 @@ function playSound(circleLevel, keyIndex, volume = 0.5, sustain = false) {
     }
     
     if (circleLevel === 0) {
-        // Lofi 코드 - 이전 코드 정지하고 새 코드 연속 재생
-        stopCurrentChord();
-        
+        // Lofi chord: sustain the chord until the next chord is played
         const chord = lofiChords[keyIndex];
         if (chord && instruments[0].voices && instruments[0].voices.length > 0) {
-            console.log('Playing chord:', chord.name, chord.notes);
-            
-            // 코드의 각 음을 별도의 voice로 재생 (sustain)
+            console.log('Playing chord (sustain until next):', chord.name, chord.notes);
+            // Stop any currently playing chord first
+            stopCurrentChord();
             chord.notes.forEach((note, index) => {
                 if (index < instruments[0].voices.length) {
                     const voice = instruments[0].voices[index];
-                    // 버퍼 로드 확인
                     if (voice && voice.loaded) {
                         try {
+                            // triggerAttack without scheduled release so it sustains
                             voice.triggerAttack(note, Tone.now(), volume);
-                            // 현재 재생 중인 음 추적
                             instruments[0].activeNotes.push({ voice: voice, note: note });
                         } catch (err) {
                             console.error('Error playing chord note:', err);
@@ -1089,3 +1274,354 @@ function checkAndPlayLetterSound(letter, letterAngle, letterIndex) {
     // 상태 갱신
     letter._near12 = isNear12;
 }
+
+// ==================== 녹화 관련 함수 ====================
+
+function showDownloadButton() {
+    const btn = document.getElementById('download-button');
+    console.log('Showing download button, element:', btn);
+    if (btn) {
+        btn.style.display = 'flex';
+        console.log('✓ Download button is now visible');
+    } else {
+        console.error('✗ Download button element not found!');
+    }
+}
+
+function hideDownloadButton() {
+    const btn = document.getElementById('download-button');
+    if (btn) {
+        btn.style.display = 'none';
+        console.log('Download button hidden');
+    }
+}
+
+// HTML에서 호출되는 전역 함수
+window.beginRecordingWithSettings = function(lpTitle, colorIndex, ratio) {
+    console.log('=== beginRecordingWithSettings called ===');
+    console.log('lpTitle:', lpTitle);
+    console.log('colorIndex:', colorIndex);
+    console.log('ratio:', ratio);
+    
+    recordingConfig = {
+        lpTitle: lpTitle,
+        colorIndex: colorIndex,
+        ratio: ratio
+    };
+    
+    console.log('Recording config:', recordingConfig);
+    
+    // 캔버스 크기 조정
+    resizeCanvasForRecording(ratio);
+    
+    // 배경색 변경
+    if (colorIndex !== 'custom') {
+        const colorIdx = parseInt(colorIndex);
+        if (colorIdx >= 0 && colorIdx < bgColors.length) {
+            // 임시로 배경색 변경
+            recordingConfig.bgColor = bgColors[colorIdx];
+        }
+    } else {
+        // 커스텀 그라디언트 색상
+        recordingConfig.bgColor = [40, 30, 60]; // 보라색 계열
+    }
+    
+    // 잠시 후 녹화 시작 (캔버스 크기 조정 후)
+    setTimeout(() => {
+        // 시작 각도를 0도로 리셋하여 녹화가 똑바로(0도)에서 시작하도록 함
+        angle = 0;
+        previousAngle = angle;
+        setupRecorderWithConfig();
+        startRecording();
+    }, 500);
+};
+
+function resizeCanvasForRecording(ratio) {
+    if (ratio === 'square') {
+        resizeCanvas(1080, 1080);
+    } else if (ratio === 'mobile') {
+        resizeCanvas(1080, 1920);
+    }
+}
+
+function setupRecorderWithConfig() {
+    // MediaRecorder 설정 (캔버스와 오디오 캡처)
+    try {
+        // 캔버스 스트림 가져오기
+        const canvas = document.querySelector('canvas');
+        if (!canvas) {
+            console.warn('Canvas not found for recording');
+            return;
+        }
+        
+        const canvasStream = canvas.captureStream(60); // 60 FPS
+        
+        // Tone.js 오디오 출력 캡처를 위한 설정
+        const audioContext = Tone.context;
+        const dest = audioContext.createMediaStreamDestination();
+        
+        // Tone.Destination이 아직 연결되지 않았다면 연결
+        if (!Tone.Destination._connectedToDest) {
+            Tone.Destination.connect(dest);
+            Tone.Destination._connectedToDest = true;
+        }
+        
+        // 캔버스 비디오 트랙과 오디오 트랙 결합
+        const videoTrack = canvasStream.getVideoTracks()[0];
+        const audioTrack = dest.stream.getAudioTracks()[0];
+        
+        const combinedStream = new MediaStream([videoTrack, audioTrack]);
+        
+        // MediaRecorder 생성
+        recorder = new MediaRecorder(combinedStream, {
+            mimeType: 'video/webm;codecs=vp9',
+            videoBitsPerSecond: 5000000 // 5 Mbps
+        });
+        
+        recorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                chunks.push(e.data);
+            }
+        };
+        
+        recorder.onstop = () => {
+            // 녹화 완료 시 파일 다운로드
+            // 다운로드 중에는 LP 애니메이션을 멈춤
+            isDownloading = true;
+            console.log('⤓ Download starting - pausing animation');
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // 파일명 생성
+            const now = new Date();
+            const timestamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+            const fileName = recordingConfig.lpTitle 
+                ? `${recordingConfig.lpTitle.replace(/[^a-zA-Z0-9가-힣]/g, '_')}_${timestamp}.webm`
+                : `lofi_circle_${timestamp}.webm`;
+            a.download = fileName;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            chunks = [];
+            console.log('✓ Recording saved:', fileName);
+
+            // 캔버스 크기 원래대로 복원
+            resizeCanvas(windowWidth, windowHeight);
+            recordingConfig = null;
+            // 다운로드 끝났으니 애니메이션 복원
+            isDownloading = false;
+            console.log('⤒ Download finished - resuming animation');
+        };
+        
+        console.log('✓ Recorder setup complete with config');
+    } catch (err) {
+        console.error('✗ Recorder setup failed:', err);
+    }
+}
+
+function setupRecorder() {
+    // 기본 설정 (사용하지 않지만 유지)
+    console.log('Basic recorder setup - use setupRecorderWithConfig instead');
+}
+
+// ---------- UI wiring (CSP-safe) ----------
+function initRecordingUI() {
+    // Download button opens config popup
+    const downloadBtn = document.getElementById('download-button');
+    const popup = document.getElementById('config-popup');
+    const cancelBtn = popup ? popup.querySelector('.btn-cancel') : null;
+    const startBtn = popup ? popup.querySelector('.btn-start') : null;
+
+    if (downloadBtn && popup) {
+        downloadBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('[UI] Download button clicked');
+            popup.style.display = 'flex';
+            uiOpen = true;
+            // focus LP title input for convenience
+            const lpInput = document.getElementById('lp-title');
+            if (lpInput) {
+                setTimeout(() => lpInput.focus(), 50);
+            }
+        });
+    }
+
+    // clicking outside the panel closes the popup
+    if (popup) {
+        popup.addEventListener('click', (e) => {
+            if (e.target === popup) {
+                closeConfigPopup();
+            }
+        });
+    }
+
+    if (cancelBtn && popup) {
+        cancelBtn.addEventListener('click', () => closeConfigPopup());
+    }
+
+    if (startBtn && popup) {
+        startBtn.addEventListener('click', () => startRecordingWithConfig());
+    }
+
+    // Color picker selection
+    document.querySelectorAll('.color-option').forEach(option => {
+        option.addEventListener('click', function() {
+            document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+            this.classList.add('selected');
+            // 즉시 배경 색 적용
+            const colorKey = this.dataset.color;
+            applySelectedBgColor(colorKey);
+        });
+    });
+
+    // Ratio selection
+    document.querySelectorAll('.ratio-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+}
+
+function closeConfigPopup() {
+    const popup = document.getElementById('config-popup');
+    if (popup) popup.style.display = 'none';
+    uiOpen = false;
+}
+
+function startRecordingWithConfig() {
+    const lpInput = document.getElementById('lp-title');
+    const lpTitle = lpInput ? lpInput.value.trim() : '';
+    const colorEl = document.querySelector('.color-option.selected');
+    const ratioEl = document.querySelector('.ratio-btn.selected');
+    const selectedColor = colorEl ? colorEl.dataset.color : '0';
+    const selectedRatio = ratioEl ? ratioEl.dataset.ratio : 'square';
+
+    console.log('[UI] Start recording with', { lpTitle, selectedColor, selectedRatio });
+    if (typeof window.beginRecordingWithSettings === 'function') {
+        window.beginRecordingWithSettings(lpTitle, selectedColor, selectedRatio);
+        closeConfigPopup();
+    } else {
+        console.error('beginRecordingWithSettings not available');
+    }
+}
+
+function startRecording() {
+    if (!recorder || isRecording) return;
+    
+    try {
+        chunks = [];
+        recorder.start();
+        isRecording = true;
+        recordingStartAngle = angle;
+        console.log('🔴 Recording started at angle:', angle);
+        
+        // 화면에 녹화 중 표시
+        showRecordingIndicator();
+        
+        // 다운로드 버튼 숨기기
+        hideDownloadButton();
+    } catch (err) {
+        console.error('✗ Failed to start recording:', err);
+    }
+}
+
+function stopRecording() {
+    if (!recorder || !isRecording) return;
+    
+    try {
+        recorder.stop();
+        isRecording = false;
+        console.log('⏹ Recording stopped');
+        
+        // 녹화 중 표시 제거
+        hideRecordingIndicator();
+        
+        // 다운로드 버튼 다시 표시
+        showDownloadButton();
+    } catch (err) {
+        console.error('✗ Failed to stop recording:', err);
+    }
+}
+
+function showRecordingIndicator() {
+    // 화면 우측 상단에 녹화 중 표시
+    const indicator = document.createElement('div');
+    indicator.id = 'recording-indicator';
+    indicator.style.position = 'fixed';
+    indicator.style.top = '20px';
+    indicator.style.right = '20px';
+    indicator.style.padding = '10px 20px';
+    // 흑백 심플 스타일
+    indicator.style.backgroundColor = 'rgba(255, 255, 255, 0.85)';
+    indicator.style.color = '#111';
+    indicator.style.borderRadius = '5px';
+    indicator.style.fontFamily = 'Arial, sans-serif';
+    indicator.style.fontSize = '16px';
+    indicator.style.fontWeight = 'bold';
+    indicator.style.zIndex = '10000';
+    indicator.style.display = 'flex';
+    indicator.style.alignItems = 'center';
+    indicator.style.gap = '10px';
+    
+    // 깜빡이는 점 추가
+    const dot = document.createElement('div');
+    dot.style.width = '10px';
+    dot.style.height = '10px';
+    dot.style.backgroundColor = '#111';
+    dot.style.borderRadius = '50%';
+    dot.style.animation = 'blink 1s infinite';
+    
+    indicator.appendChild(dot);
+    indicator.appendChild(document.createTextNode('REC'));
+    
+    document.body.appendChild(indicator);
+    
+    // 깜빡임 애니메이션 추가
+    if (!document.getElementById('blink-style')) {
+        const style = document.createElement('style');
+        style.id = 'blink-style';
+        style.textContent = `
+            @keyframes blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.3; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+function hideRecordingIndicator() {
+    const indicator = document.getElementById('recording-indicator');
+    if (indicator) {
+        indicator.remove();
+    }
+}
+
+function checkRecordingProgress() {
+    if (!isRecording) return;
+    
+    // 한 바퀴(2π) 완료 확인
+    let angleDiff = angle - recordingStartAngle;
+    
+    // 각도 차이가 한 바퀴(2π) 이상이면 녹화 중지
+    if (angleDiff <= -TWO_PI) {
+        stopRecording();
+    }
+}
+
+// 테스트용 전역 함수들
+window.testShowDownloadButton = function() {
+    console.log('Test: Showing download button');
+    showDownloadButton();
+};
+
+window.testCircleLevel = function() {
+    console.log('Current circle level:', currentCircleLevel);
+    console.log('Can download:', canDownload);
+};
